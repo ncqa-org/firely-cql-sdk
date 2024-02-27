@@ -1,6 +1,7 @@
 ﻿using Hl7.Cql.Abstractions;
 using Hl7.Cql.Fhir;
 using Hl7.Cql.Model;
+using Hl7.Fhir.Model;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,6 +49,19 @@ namespace CoreTests
                 }
             }
         }
+
+        [TestMethod]
+        public void Resolve_ResourceType()
+        {
+            var cs = new CapabilityStatement.ResourceComponent();
+            var csTypeDataType = cs.GetType().GetProperty("TypeElement").PropertyType;
+
+            var ig = new ImplementationGuide.GlobalComponent();
+            var igTypeDataType = ig.GetType().GetProperty("TypeElement").PropertyType;
+
+            Assert.AreEqual(csTypeDataType, igTypeDataType);
+        }
+
 
         public static IEnumerable<object[]> GetData()
         {
