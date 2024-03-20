@@ -404,8 +404,9 @@ namespace Hl7.Cql.CodeGeneration.NET
             var vng = new VariableNameGenerator(Enumerable.Empty<string>(), postfix: "_");
 
             var visitedBody = Transform(overload.Body,
+                new ShortCircuitVisitor(),
                 new RedundantCastsTransformer(),
-                new SimplifyExpressionsVisitor(),
+                new SimplifyExpressionsVisitor(vng),
                 new RenameVariablesVisitor(vng),
                 new LocalVariableDeduper()
             );

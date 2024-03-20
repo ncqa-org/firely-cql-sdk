@@ -30,6 +30,12 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
         private readonly List<BinaryExpression> _assignments = new();
 
         public IReadOnlyCollection<BinaryExpression> Assignments => _assignments;
+        private VariableNameGenerator _variableNameGenerator;
+
+        public SimplifyExpressionsVisitor(VariableNameGenerator nameGenerator)
+        {
+            _variableNameGenerator = nameGenerator;
+        }
 
         [return: NotNullIfNotNull("node")]
         public override Expression? Visit(Expression? node)
@@ -78,6 +84,8 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
         private Expression simplify(Expression node)
         {
+            if (node.Type == typeof(void)) return node;
+
             // transform complex into assignment to variable + variable
             var newLetVariable = Expression.Parameter(node.Type);
             var newAssign = Expression.Assign(newLetVariable, node);
@@ -101,7 +109,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             {
                 if (node.IfFalse is ConditionalExpression) return false;
 
-                var testVisitor = new SimplifyExpressionsVisitor();
+                var testVisitor = new SimplifyExpressionsVisitor(_variableNameGenerator);
                 _ = testVisitor.Visit(node.IfTrue);
                 _ = testVisitor.Visit(node.IfFalse);
                 return !testVisitor.Assignments.Any();
@@ -179,7 +187,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
         {
             // Create a new visitor, since we're the new root that can hold
             // a block of assignments.
-            var nestedVisitor = new SimplifyExpressionsVisitor();
+            var nestedVisitor = new SimplifyExpressionsVisitor(_variableNameGenerator);
             var body = nestedVisitor.Visit(node.Body);
             return node.Update(body, node.Parameters);
         }
@@ -211,22 +219,98 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             // we use a nested vistor here to create a nested block.
             CaseWhenThenExpression.WhenThenCase visitCase(CaseWhenThenExpression.WhenThenCase c)
             {
-                var thenVisitor = new SimplifyExpressionsVisitor();
+                var thenVisitor = new SimplifyExpressionsVisitor(_variableNameGenerator);
                 return c.Update(c.When, thenVisitor.Visit(c.Then));
             }
 
             var cases = node.WhenThenCases.Select(visitCase);
 
             // The final else case is treated just like the when/then
-            var elseVisitor = new SimplifyExpressionsVisitor();
+            var elseVisitor = new SimplifyExpressionsVisitor(_variableNameGenerator);
             var visitedElse = elseVisitor.Visit(node.ElseCase);
 
             var newCTW = node.Update(cases.ToList().AsReadOnly(), visitedElse);
 
+
+            // ~ Find duplicate left side when cases
+            // ex. if      (A() == null) return null;
+            //     else if (A() == true) return true;
+
+            // Pull that out to become
+
+            // var a = A();
+            // if      (a == null) return null;
+            // else if (a == true) return true;
+
+
+            var deduplicatedCases = new List<CaseWhenThenExpression.WhenThenCase>();
+
+            var possibleDuplicates = new Dictionary<string, List<CaseWhenThenExpression.WhenThenCase>>();
+            foreach(var _case in (newCTW as CaseWhenThenExpression)!.WhenThenCases)
+            {
+                if (!(_case.When is BinaryExpression))
+                {
+                    deduplicatedCases.Add(_case);
+                    continue;
+                }
+
+                var left = (_case.When as BinaryExpression)!.Left;
+                var debugView = left.GetDebugView();
+
+                List<CaseWhenThenExpression.WhenThenCase>? _list;
+                if (!possibleDuplicates.TryGetValue(debugView, out _list))
+                {
+                    _list = new List<CaseWhenThenExpression.WhenThenCase>();
+                    possibleDuplicates.Add(debugView, _list);
+                }
+
+                _list.Add(_case);
+            }
+
+
+            var parameterAssignmentExpressions = new List<Expression>();
+            var localVariables = new List<ParameterExpression>();
+            foreach(var kvp in possibleDuplicates)
+            {
+                if (kvp.Value.Count <= 1)
+                {
+                    // NOTE(agw): Wasn't a duplicate, just add it
+                    deduplicatedCases.Add(kvp.Value.First());
+                    continue;
+                }
+
+                var whenLeft = (kvp.Value[0].When as BinaryExpression)!.Left;
+
+                var param = Expression.Parameter(whenLeft.Type, _variableNameGenerator.Next());
+
+                var assignment = Expression.Assign(param, whenLeft);
+                parameterAssignmentExpressions.Add(assignment);
+
+                for (int i = 0; i < kvp.Value.Count; i++)
+                {
+                    var _case = kvp.Value[i];
+                    var when = (_case.When as BinaryExpression)!;
+                    var left = Expression.MakeBinary(when.NodeType, param, when.Right);
+
+                    var newCase = new CaseWhenThenExpression.WhenThenCase(left, _case.Then);
+
+                    deduplicatedCases.Add(newCase);
+                }
+            }
+
+             newCTW = (newCTW as CaseWhenThenExpression)!.Update(deduplicatedCases.AsReadOnly(), visitedElse);
+
+
+            var allExpressions = new List<Expression>();
+            allExpressions.AddRange(parameterAssignmentExpressions);
+            allExpressions.Add(newCTW);
+
+            var block = Expression.Block(localVariables, allExpressions);
+
             // To make sure the if block in C# (which is NOT an expression) can
             // be used everywhere, we place the block inside its own lambda.
             // This also ensures the lexical exits work correctly.
-            var func = Expression.Lambda(Expression.Block(newCTW));
+            var func = Expression.Lambda(block);
             var assign = simplify(func);
 
             // Finally, replace the whole statement with just an invocation

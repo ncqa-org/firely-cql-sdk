@@ -52,6 +52,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 CaseWhenThenExpression cwt => convertCaseWhenThenExpression(indent, cwt),
                 FunctionCallExpression fce => convertFunctionCallExpression(indent, leadingIndentString, fce),
                 DefinitionCallExpression dce => convertDefinitionCallExpression(indent, leadingIndentString, dce),
+                CqlOrExpression cqlOr => convertCqlOrExpression(indent, leadingIndentString, cqlOr),
                 ElmAsExpression ea => ConvertExpression(indent, ea.Reduce(), leadingIndent),
                 _ => throw new NotSupportedException($"Don't know how to convert an expression of type {expression.GetType()} into C#."),
             };
@@ -73,6 +74,13 @@ namespace Hl7.Cql.CodeGeneration.NET
             sb.Append(CultureInfo.InvariantCulture, $"{target}.{csFunctionName}()");
 
             return sb.ToString();
+        }
+        private string convertCqlOrExpression(int indent, string leadingIndentString, CqlOrExpression cqlOr)
+        {
+            var leftConverted = ConvertExpression(0, cqlOr.LeftExpression);
+            var rightConverted = ConvertExpression(0, cqlOr.RightExpression);
+            var text = $"context.Operators.Or({leftConverted}, {rightConverted})";
+            return text;
         }
 
         private string convertFunctionCallExpression(int indent, string leadingIndentString, FunctionCallExpression fce)
