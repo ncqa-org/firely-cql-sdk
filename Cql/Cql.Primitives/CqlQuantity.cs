@@ -22,7 +22,6 @@ namespace Hl7.Cql.Primitives
         /// Creates an instance.
         /// </summary>
         public CqlQuantity() { }
-
         /// <summary>
         /// Creates an instance.
         /// </summary>
@@ -37,12 +36,12 @@ namespace Hl7.Cql.Primitives
         /// <summary>
         /// The value of this quantity.
         /// </summary>
-        public decimal? value { get; init; }
+        public decimal? value { get; set; }
 
         /// <summary>
         /// The UCUM units of this quantity.
         /// </summary>
-        public string? unit { get; init;  }
+        public string? unit { get; set;  }
 
         /// <summary>
         /// Gets a string representation of this quantity.
