@@ -11,8 +11,6 @@ using Hl7.Cql.Primitives;
 using Hl7.Cql.Conversion;
 using Hl7.Cql.CqlToElm.Builtin;
 using static Hl7.Fhir.Model.OperationOutcome;
-using Hl7.Cql.Packaging;
-using static Hl7.Fhir.Model.Parameters;
 
 namespace Hl7.Cql.Api
 {
@@ -95,7 +93,11 @@ namespace Hl7.Cql.Api
                     },
                     ElementId = "expression"
                 });
-                result.Parameter.AddRange(ConvertToFhirDataType(expressionValue!, "return")!);
+                result.Parameter.Add(new Parameters.ParameterComponent()
+                {
+                    Name = "return",
+                    Value = ConvertToFhirDataType(expressionValue!)
+                });
 
                 //Check if they provided an expectation
                 if (cqlExpectation != null)
@@ -108,9 +110,9 @@ namespace Hl7.Cql.Api
                         var issues = expressionErrors.Select(s => new IssueComponent()
                         {
                             Code = IssueType.Invalid,
-                            Severity = IssueSeverity.Error,
+                            Severity = IssueSeverity.Error,                            
                             Details = new CodeableConcept()
-                            {
+                            {                                
                                 Text = s.message
                             },
                             ElementId = "expectation"
@@ -134,14 +136,18 @@ namespace Hl7.Cql.Api
                             Text = $"Executed CQL Expression: {cqlExpectation}"
                         }
                     });
-                    result.Parameter.AddRange(ConvertToFhirDataType(expectationValue!, "expected")!);
+                    result.Parameter.Add(new Parameters.ParameterComponent()
+                    {
+                        Name = "expected",
+                        Value = ConvertToFhirDataType(expectationValue!)
+                    });
 
                     // Compare the CQL expression and expectation
                     Elm.Expression equal = Equals(expression, expectation);
                     var equalLambda = _expressionBuilder.Lambda(equal);
                     var equalDelegate = equalLambda.Compile();
                     var equalResult = (bool?)equalDelegate.DynamicInvoke(_cqlContext);
-
+                    
                     outcome.Issue.Add(new IssueComponent()
                     {
                         Code = IssueType.Informational,
@@ -186,48 +192,41 @@ namespace Hl7.Cql.Api
         /// Convert the CQL Expression type to a FHIR data type
         /// </summary>
         /// <param name="expressionResult"></param>
-        /// <param name="definitionName"></param>
         /// <returns></returns>
-        public ParameterComponent?[]? ConvertToFhirDataType(object expressionResult, string definitionName)
+        public DataType ConvertToFhirDataType(object expressionResult)
         {
             try
             {
-                var crosswalk = new CqlTypeToFhirTypeMapper(FhirTypeResolver.Default);
-                var cqlType = expressionResult.GetType();
-                var typeEntry = crosswalk.TypeEntryFor(cqlType);
-                if (typeEntry is null)
-                    throw new InvalidOperationException($"Unable to find FHIR type for CQL type {cqlType}");
-                else if (IsOrImplementsIEnumerableOfT(expressionResult.GetType()) && typeEntry.ElementType != null)
+                var resultType = expressionResult.GetType();
+                switch (resultType.Name)
                 {
-                    var listValue = expressionResult as IEnumerable<object>;
-                    var listResult = listValue?.Select(val => ConvertCqlModelToParameter(expressionResult, definitionName, typeEntry.ElementType)).ToArray();
-
-                    if (listResult == null || listResult.Length == 0)
-                    {
-                        return null;
-                    }
-                    return listResult;
+                    case "Boolean":
+                        return new FhirBoolean((bool)expressionResult);
+                    case "Int32":
+                    case "Int64":
+                        return new Hl7.Fhir.Model.Integer((int)expressionResult);
+                    case "Decimal":
+                        return new FhirDecimal((decimal)expressionResult);
+                    case "String":
+                        return new FhirString((string)expressionResult);
+                    case nameof(CqlDateTime):
+                        return new Hl7.Fhir.Model.FhirDateTime(expressionResult.ToString());
+                    case "DateTimeOffset":
+                        return new FhirDateTime((DateTimeOffset)expressionResult);
+                    case nameof(CqlTime):
+                        return new Hl7.Fhir.Model.Time(expressionResult.ToString());
+                    case "Double":
+                        return new FhirDecimal((decimal)expressionResult);
+                    default:
+                        return new FhirString(expressionResult.ToString());
                 }
-                else
-                {
-                    return new[] { ConvertCqlModelToParameter(expressionResult, definitionName, typeEntry) };
-                }
-
             }
             catch (Exception)
             {
-                return null;
+                return new FhirString(null);
             }
 
         }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        public static bool IsOrImplementsIEnumerableOfT(Type type) => FhirTypeResolver.Default.ImplementsGenericInterface(type, typeof(IEnumerable<>));
-
 
         /// <summary>
         /// 
@@ -285,84 +284,5 @@ namespace Hl7.Cql.Api
             }.WithResultType(SystemTypes.BooleanType);
             return @if;
         }
-
-        private static ParameterComponent? ConvertCqlModelToParameter(object value, string definitionName, CqlTypeToFhirMapping mappedType)
-        {
-            if (value is null) return null;
-
-            var thisParam = new ParameterComponent { Name = definitionName };
-            switch (mappedType.FhirType)
-            {
-                case FHIRAllTypes.Boolean:
-                    thisParam.Value = new FhirBoolean() { Value = value as bool? };
-                    break;
-                case FHIRAllTypes.Integer:
-                    thisParam.Value = new Integer() { Value = value as int? };
-                    break;
-                case FHIRAllTypes.Decimal:
-                    thisParam.Value = new FhirDecimal() { Value = value as decimal? };
-                    break;
-                case FHIRAllTypes.String:
-                    thisParam.Value = new FhirString { Value = value as string };
-                    break;
-                case FHIRAllTypes.Date:
-                    thisParam.Value = FhirTypeConverter.Default.Convert<Hl7.Fhir.Model.Date>(value);
-                    break;
-                case FHIRAllTypes.DateTime:
-                    thisParam.Value = FhirTypeConverter.Default.Convert<FhirDateTime>(value);
-                    break;
-                case FHIRAllTypes.Time:
-                    thisParam.Value = FhirTypeConverter.Default.Convert<Hl7.Fhir.Model.Time>(value);
-                    break;
-                case FHIRAllTypes.Quantity:
-                    thisParam.Value = FhirTypeConverter.Default.Convert<Hl7.Fhir.Model.Quantity>(value);
-                    break;
-                case FHIRAllTypes.Range:
-                    thisParam.Value = FhirTypeConverter.Default.Convert<Hl7.Fhir.Model.Range>(value);
-                    break;
-                case FHIRAllTypes.Ratio:
-                    thisParam.Value = FhirTypeConverter.Default.Convert<Hl7.Fhir.Model.Ratio>(value);
-                    break;
-                case FHIRAllTypes.Period:
-                    thisParam.Value = FhirTypeConverter.Default.Convert<Period>(value);
-                    break;
-                case FHIRAllTypes.List:
-                case FHIRAllTypes.ValueSet:
-                    return null;
-                case FHIRAllTypes.Basic:
-                    return null; //We cant handle basic
-                case FHIRAllTypes.Identifier:
-                    if (value is Identifier valueIdentifier)
-                    {
-                        thisParam.Value = valueIdentifier;
-                    }
-                    else if (value != null) throw new InvalidOperationException($"Definition '{definitionName}' was mapped to type '{mappedType.FhirType}' but could not be converted to that type.");
-                    break;
-                case FHIRAllTypes.Code:
-                    if (value is Hl7.Fhir.Model.Code valueCode)
-                    {
-                        thisParam.Value = valueCode;
-                    }
-                    else if (value is CqlCode valueCqlCode)
-                    {
-                        thisParam.Value = new Hl7.Fhir.Model.Code
-                        {
-                            Value = valueCqlCode.code,
-                        };
-                    }
-                    else if (value != null) throw new InvalidOperationException($"Definition '{definitionName}' was mapped to type '{mappedType.FhirType}' but could not be converted to that type.");
-                    break;
-                default:
-                    if (value is Resource valueResource)
-                    {
-                        thisParam.Resource = valueResource;
-                    }
-                    else if (value != null) throw new InvalidOperationException($"Definition '{definitionName}': type '{mappedType.FhirType}' is not supported");
-                    break;
-            }
-            return thisParam;
-        }
     }
-
-
 }
