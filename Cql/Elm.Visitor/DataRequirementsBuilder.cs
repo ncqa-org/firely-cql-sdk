@@ -14,18 +14,35 @@ namespace Hl7.Cql.Elm.Visitor
         private HashSet<string> _properties = new();
 
         // Map of FHIR property code paths to the codes they might be for the current statement
-        private Dictionary<string, HashSet<Tuple<string, string>>> _codeRequirements = new();
-        private Dictionary<string, HashSet<string>> _valueSetFilters = new();
+        private HashSet<string> _codeProperties = new();
+        private HashSet<Tuple<string, string>> _codeRequirements = new();
+        private HashSet<string> _valueSetFilters = new();
 
         // Same map as above but accumulated for all statements
         private Dictionary<string, HashSet<Tuple<string, string>>> _codeRequirementsTotal = new();
         private Dictionary<string, HashSet<string>> _valueSetFiltersTotal = new();
 
-        private List<DataRequirement> _dataRequirements = new();
-
         // Stack that holds a function scoped stack of Maps that 
         // associate variable names (aliases) to properties or child properties
         public Stack<Dictionary<string, string>> _path = new(new Dictionary<string, string>[] { new() });
+
+        private readonly List<string> _resourceExclusions = new()
+        {
+            "Resource",
+            "Reference",
+            "Identifier",
+            "Extension",
+            "DomainResource",
+            "Meta"
+        };
+
+        private void Clear()
+        {
+            _codeRequirements.Clear();
+            _valueSetFilters.Clear();
+            _codeRequirementsTotal.Clear();
+            _valueSetFiltersTotal.Clear();
+        }
 
         public DataRequirementsBuilder(Dictionary<string, Library> libraries) : base(libraries)
         {
@@ -45,24 +62,46 @@ namespace Hl7.Cql.Elm.Visitor
             return name;
         }
 
+        public List<DataRequirement> BuildByDefine(string defineName)
+        {
+            Clear();
+            
+            var statement = Libraries.ElementAt(0).Value.statements.Single(_ => _.name == defineName);
+            VisitStatement(statement, Libraries.ElementAt(0).Key);
+
+            return BuildInternal();
+        }
+
+        /// <summary>
+        /// Builds data requirement aggregate for all public defines in library.
+        /// </summary>
+        /// <returns></returns>
         public List<DataRequirement> Build()
         {
-            VisitLibrary(0);
-            Hl7.Cql.Packaging.CqlTypeToFhirTypeMapper typeMapper = new(FhirTypeResolver.Default);
+            Clear();
 
+            VisitLibrary(0);
+            return BuildInternal();
+        }
+
+        private List<DataRequirement> BuildInternal()
+        {
+            Hl7.Cql.Packaging.CqlTypeToFhirTypeMapper typeMapper = new(FhirTypeResolver.Default);
+            List<DataRequirement> dataRequirements = new();
             foreach (var n in _properties)
             {
                 var root = n.Split(".")[0];
                 var fhirType = typeMapper.TypeEntryFor("{http://hl7.org/fhir}" + root);
                 if (!Enum.TryParse<FHIRAllTypes>(root, out var fhirAllType)
                     || fhirType == null
-                    || fhirType.CqlType != CqlPrimitiveType.Fhir)
+                    || fhirType.CqlType != CqlPrimitiveType.Fhir
+                    || _resourceExclusions.Contains(root))
                 {
                     // Console.WriteLine($"Skipping invalid fhir type {n}");
                     continue;
                 }
 
-                var existing = _dataRequirements.SingleOrDefault(o => o.Type == fhirAllType);
+                var existing = dataRequirements.SingleOrDefault(o => o.Type == fhirAllType);
 
                 if (existing == null)
                 {
@@ -71,7 +110,7 @@ namespace Hl7.Cql.Elm.Visitor
                         Type = fhirAllType,
                         MustSupport = new List<string>()
                     };
-                    _dataRequirements.Add(existing);
+                    dataRequirements.Add(existing);
                 }
 
 
@@ -114,32 +153,31 @@ namespace Hl7.Cql.Elm.Visitor
                 }
             }
 
-            return _dataRequirements;
+            return dataRequirements;
 
         }
 
-
-        protected override void VisitStatement(ExpressionDef expression)
+        protected override void VisitStatement(ExpressionDef expression, string? Library = null)
         {
 
-            base.VisitStatement(expression);
+            base.VisitStatement(expression, Library);
 
-            foreach (var n in _codeRequirements)
+            foreach (var n in _codeProperties)
             {
-                _codeRequirementsTotal.TryAdd(n.Key, new());
+                _codeRequirementsTotal.TryAdd(n, new());
 
-                foreach (var x in n.Value)
+                foreach (var x in _codeRequirements)
                 {
-                    _codeRequirementsTotal[n.Key].Add(x);
+                    _codeRequirementsTotal[n].Add(x);
                 }
-            }
 
-            foreach (var n in _valueSetFilters)
-            {
-                _valueSetFiltersTotal.TryAdd(n.Key, new());
-                foreach (var x in n.Value)
+                foreach (var v in _valueSetFilters)
                 {
-                    _valueSetFiltersTotal[n.Key].Add(x);
+                    _valueSetFiltersTotal.TryAdd(n, new());
+                    foreach (var x in n)
+                    {
+                        _valueSetFiltersTotal[n].Add(v);
+                    }
                 }
             }
             _valueSetFilters.Clear();
@@ -157,7 +195,21 @@ namespace Hl7.Cql.Elm.Visitor
             }
             else
             {
-                source = GetElementReturnType(property.source);
+                switch (property.source)
+                {
+                    case OperandRef operandRef:
+                    {
+                        source = _path.Peek()[operandRef.name];
+                        break;
+                    }
+
+                    default:
+                    {
+                        source = GetElementReturnType(property.source);
+                        break;
+                    }
+                }
+
             }
 
             // Tuple property sources cannot be resolved
@@ -187,8 +239,7 @@ namespace Hl7.Cql.Elm.Visitor
                 type == "{http://hl7.org/fhir}Code" ||
                 type == "{http://hl7.org/fhir}CodeableConcept")
             {
-                _codeRequirements.TryAdd(cleanPath, new());
-                _valueSetFilters.TryAdd(cleanPath, new());
+                _codeProperties.Add(cleanPath);
             }
 
             base.VisitProperty(property);
@@ -242,20 +293,14 @@ namespace Hl7.Cql.Elm.Visitor
 
         public override void VisitCodeRef(CodeRef expression)
         {
-            foreach (var c in _codeRequirements)
-            {
-                c.Value.Add(ResolveCode(expression));
-            }
+            _codeRequirements.Add(ResolveCode(expression));
             base.VisitCodeRef(expression);
         }
 
         public override void VisitValueSetRef(ValueSetRef expression)
         {
-            foreach (var c in _valueSetFilters)
-            {
-                var def = ResolveValueSet(expression);
-                c.Value.Add(def.id);
-            }
+            var def = ResolveValueSet(expression);
+            _valueSetFilters.Add(def.id);
             base.VisitValueSetRef(expression);
         }
 
@@ -281,7 +326,7 @@ namespace Hl7.Cql.Elm.Visitor
             var codeInLib = lib.codes.Single(c => c.name == codeRef.name);
             var system = lib.codeSystems.Single(s => s.name == codeInLib.codeSystem.name);
 
-            return new Tuple<string, string>(system.id, codeInLib.name);
+            return new Tuple<string, string>(system.id, codeInLib.id);
         }
 
         private ValueSetDef ResolveValueSet(ValueSetRef valueSetRef)

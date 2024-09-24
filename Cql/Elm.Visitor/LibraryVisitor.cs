@@ -1,4 +1,8 @@
-﻿using System.Text.RegularExpressions;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using Hl7.Cql.Fhir;
 using Hl7.Cql.Packaging;
 using Hl7.Fhir.Model;
@@ -59,7 +63,7 @@ namespace Hl7.Cql.Elm
                 foreach (var codeSystem in elm?.codeSystems ?? Enumerable.Empty<CodeSystemDef>())
                 {
                     if (codeSystem?.name != null && codeSystem?.id != null)
-                        _codeSystemDefLookup.Add(codeSystem.name, codeSystem);
+                        ; //_codeSystemDefLookup.Add(codeSystem.name, codeSystem);
                 }
             }
         }
@@ -201,7 +205,7 @@ namespace Hl7.Cql.Elm
                 return type.resultTypeName.Name;
             }
 
-            if (fhirType?.FhirType == FHIRAllTypes.List)
+            if (fhirType?.FhirType == FHIRAllTypes.List || resultType is ListTypeSpecifier)
             {
                 if (resultType is NamedTypeSpecifier named)
                 {
@@ -219,6 +223,9 @@ namespace Hl7.Cql.Elm
                     {
                         return $"List<{GetFhirTypeName(listInvervalType)}>";
                     }
+
+                    return $"List<{GetFhirTypeName(listType.elementType)}>";
+
                 }
 
                 throw new ArgumentException($"List type cannot be resolved");
@@ -305,7 +312,7 @@ namespace Hl7.Cql.Elm
                                 _aliasMap[n.alias].Push(n);
                             }
 
-                            var value = GetReturnType(source, query.@return.expression);
+                            var value = $"List<{GetReturnType(source, query.@return.expression)}>";
 
                             foreach (var n in query.source)
                             {
@@ -323,6 +330,11 @@ namespace Hl7.Cql.Elm
                         if (aliasedQuerySource.resultTypeName != null)
                         {
                             return aliasedQuerySource.resultTypeName.Name;
+                        }
+
+                        if (aliasedQuerySource.resultTypeSpecifier != null)
+                        {
+                            return GetFhirTypeName(aliasedQuerySource.resultTypeSpecifier);
                         }
 
                         // If a query source is from a list, the actual returned value is the element
@@ -365,6 +377,62 @@ namespace Hl7.Cql.Elm
                         return GetFhirTypeName(@as.asTypeSpecifier);
                     }
 
+                case Property property:
+                {
+                    if (property.resultTypeName != null || property.resultTypeSpecifier != null)
+                    {
+                        return GetFhirTypeName(type);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(property.path))
+                    {
+                        throw new ArgumentException("Cannot determine type of property");
+                    }
+
+                    return property.path;
+                }
+
+                case ExpressionRef exprRef:
+                {
+                    var def = GetFunctionDef(source, exprRef);
+                    return GetReturnType(source, def.expression);
+                }
+
+                case SingletonFrom singletonFrom:
+                {
+                    return GetReturnType(source, singletonFrom.operand);
+                }
+
+                case Retrieve retrieve:
+                {
+                    if (retrieve.resultTypeName != null || retrieve.resultTypeSpecifier != null)
+                    {
+                        return GetFhirTypeName(type);
+                    }
+
+                    return retrieve.dataType.Name;
+                }
+
+                case Interval interval:
+                {
+                    if (interval.resultTypeSpecifier != null)
+                    {
+                        return GetFhirTypeName(type);
+                    }
+
+                    return "Interval<?>";
+                }
+
+                case ToDecimal:
+                {
+                    return "{urn:hl7-org:elm-types:r1}Decimal";
+                }
+
+                case ToInteger:
+                {
+                    return "{urn:hl7-org:elm-types:r1}Integer";
+                }
+
                 default:
                     return GetFhirTypeName(type);
             }
@@ -388,6 +456,14 @@ namespace Hl7.Cql.Elm
 
         protected string GetElementReturnType(Hl7.Cql.Elm.Element type) => GetElementReturnType(_current, type);
 
+        protected ExpressionDef GetFunctionDef(
+            Library librarySource,
+            ExpressionRef expressionRef)
+        {
+            var lib = GetLibrary(librarySource, expressionRef.libraryName);
+            return lib.statements.Single(_ => _.name == expressionRef.name);
+        }
+
         /// <summary>
         /// Gets the function reference from a library, resolving any overloads
         /// </summary>
@@ -408,22 +484,27 @@ namespace Hl7.Cql.Elm
                 return functionDefs[0];
             }
 
+            if (functionDefs.Length == 1)
+            {
+                return functionDefs[0];
+            }
+
             // Get signature of the function call we're trying to make
             var signature = functionRef.operand.Select(o => GetElementReturnType(librarySource, o)).ToArray();
 
             // Match signature to a single function in external lib
-            try
-            {
-                var def = functionDefs.Single(fd =>
-                    fd.operand.Select(o => GetElementReturnType(targetLib, o)).SequenceEqual(signature));
 
-                return def;
-            }
-            catch (InvalidOperationException)
+
+            var def = functionDefs.SingleOrDefault(fd =>
+                fd.operand.Select(o => GetElementReturnType(targetLib, o)).SequenceEqual(signature));
+
+
+            if (def == null)
             {
-                Console.WriteLine($"Could not find one matching overload in library {targetLib.Name} from library source {librarySource.Name} " +
-                                  $"for function" +
-                                  $" {functionRef.name}({string.Join(",", functionRef.operand.Select(_ => GetElementReturnType(librarySource, _) ?? "null"))}) [{functionRef.locator}]");
+                Console.WriteLine(
+                    $"Could not find one matching overload in library {targetLib.Name} from library source {librarySource.Name} " +
+                    $"for function" +
+                    $" {functionRef.name}({string.Join(",", functionRef.operand.Select(_ => GetElementReturnType(librarySource, _) ?? "null"))}) [{functionRef.locator}]");
                 Console.WriteLine("Overloads are: ");
                 foreach (var x in functionDefs)
                 {
@@ -431,8 +512,10 @@ namespace Hl7.Cql.Elm
                         $"     {x.name}({string.Join(",", x.operand.Select(_ => GetElementReturnType(targetLib, _.operandTypeSpecifier) ?? "null"))}) [{x.expression.locator}]");
                 }
 
-                throw;
+                throw new InvalidOperationException();
             }
+
+            return def;
         }
 
         /// <summary>
@@ -473,8 +556,12 @@ namespace Hl7.Cql.Elm
             _visitStack.Pop();
         }
 
-        protected virtual void VisitStatement(ExpressionDef expression)
+        protected virtual void VisitStatement(ExpressionDef expression, string? library = null)
         {
+            if (library != null)
+            {
+                _current = Libraries[library];
+            }
             expression.expression.Accept(this);
         }
 
@@ -620,7 +707,7 @@ namespace Hl7.Cql.Elm
                 referenced = Libraries[name];
             }
 
-            var refExpression = referenced.statements.Single(_ => _.name == expression.name).expression;
+            var refExpression = GetFunctionDef(referenced, expression).expression;
 
             _current = referenced;
             refExpression.Accept(this);
