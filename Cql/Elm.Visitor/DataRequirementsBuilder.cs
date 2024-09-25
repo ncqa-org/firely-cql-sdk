@@ -62,11 +62,20 @@ namespace Hl7.Cql.Elm.Visitor
             return name;
         }
 
+        /// <summary>
+        /// Generates data requirements for a single statement in the measure library
+        /// </summary>
+        /// <param name="defineName"></param>
+        /// <returns></returns>
         public List<DataRequirement> BuildByDefine(string defineName)
         {
             Clear();
             
-            var statement = Libraries.ElementAt(0).Value.statements.Single(_ => _.name == defineName);
+            var statement = Libraries.ElementAt(0).Value.statements.SingleOrDefault(_ => _.name == defineName);
+            if (statement == null)
+            {
+                throw new ArgumentException($"Statement {defineName} does not exist!");
+            }
             VisitStatement(statement, Libraries.ElementAt(0).Key);
 
             return BuildInternal();

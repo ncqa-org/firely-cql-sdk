@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace Hl7.Cql.Elm.Visitor
 {
-    public class BundleInfoBuilder
-    {
 
+    public static class BundleInfoBuilder
+    {
+        public static ValueSetMapInfo
     }
 }

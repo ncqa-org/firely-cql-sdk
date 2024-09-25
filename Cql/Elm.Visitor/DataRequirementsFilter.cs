@@ -13,7 +13,7 @@ using Hl7.Fhir.Utility;
 
 namespace Hl7.Cql.Elm.Visitor
 {
-    public class DataRequirementsFilter: SerializationFilter
+    public class DataRequirementsFilter : SerializationFilter
     {
         private DataRequirement[] _requirements;
         private Stack<string?> _propertyStack = new();

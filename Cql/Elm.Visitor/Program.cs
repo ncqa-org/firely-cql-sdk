@@ -18,8 +18,9 @@ public static class Program
 
     private static readonly string[] _supportedArgs = new[]
     {
-        "b",
-        "t",
+        "i",
+        "o",
+        "s",
         "help",
     };
    
@@ -49,22 +50,23 @@ public static class Program
             return -1;
         }
 
-        if (config["b"] is { } a)
+        DirectoryInfo inDir;
+        if (config["i"] is { } a)
         {
-            var elmDir = new DirectoryInfo(a);
-            if (!elmDir.Exists)
+            inDir = new DirectoryInfo(a);
+            if (!inDir.Exists)
             {
-                Console.Error.WriteLine($"-elm: path {a} does not exist.");
+                Console.Error.WriteLine($"-i: path {a} does not exist.");
                 return -1;
             }
         }
-
-        if (config["t"] is { } elmArg)
+        DirectoryInfo outDir;
+        if (config["o"] is { } elmArg)
         {
             var elmDir = new DirectoryInfo(elmArg);
             if (!elmDir.Exists)
             {
-                Console.Error.WriteLine($"-elm: path {elmArg} does not exist.");
+                Console.Error.WriteLine($"-o: path {elmArg} does not exist.");
                 return -1;
             }
         }
@@ -79,10 +81,10 @@ public static class Program
         Console.WriteLine();
         Console.WriteLine("Data Requirements Builder CLI");
         Console.WriteLine();
-        Console.WriteLine("--b\t <directory/file>\tPath to directory of bundles or path to single bundle.");
+        Console.WriteLine("--i\t <directory>\tPath to directory of measure bundles.");
+        Console.WriteLine("--o\t <directory>\tPath to output directory.");
+        Console.WriteLine("--s Flag to generate a population defines summary.");
 
-        Console.WriteLine(@$"--b <directory/file>\tPath to directory of 
-                            bundles or path to single bundle.");
         Console.WriteLine();
         return -1;
     }
