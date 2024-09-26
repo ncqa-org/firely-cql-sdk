@@ -25,6 +25,7 @@ using elm = Hl7.Cql.Elm;
 using Expression = System.Linq.Expressions.Expression;
 
 using ExpressionElementPairForIdentifier = System.Collections.Generic.KeyValuePair<string, (System.Linq.Expressions.Expression, Hl7.Cql.Elm.Element)>;
+using Hl7.Cql.Compiler.Expressions;
 
 namespace Hl7.Cql.Compiler
 {
@@ -750,7 +751,7 @@ namespace Hl7.Cql.Compiler
                     expression = OperandRef(ore, ctx);
                     break;
                 case Or or:
-                    expression = Or(or, ctx);
+                    expression = CqlOr(or, ctx);
                     break;
                 case Overlaps ole:
                     expression = Overlaps(ole, ctx);
@@ -2528,6 +2529,16 @@ namespace Hl7.Cql.Compiler
                 throw new InvalidOperationException($"Unable to determine type for {expressionRef.localId}");
             var invoke = InvokeDefinitionThroughRuntimeContext(expressionRef.name!, expressionRef.libraryName, expressionType, ctx);
             return invoke;
+        }
+
+        protected Expression CqlOr(elm.Or e, ExpressionBuilderContext ctx)
+        {
+            //return Or(e, ctx);
+            var lhsExpression = TranslateExpression(e.operand![0], ctx);
+            var rhsExpression = TranslateExpression(e.operand![1], ctx);
+
+            var ret = new CqlOrExpression(lhsExpression, rhsExpression);
+            return ret;
         }
 
         protected Expression ParameterRef(ParameterRef op, ExpressionBuilderContext ctx)
