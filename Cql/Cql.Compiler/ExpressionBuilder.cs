@@ -285,11 +285,26 @@ namespace Hl7.Cql.Compiler
                             defaultValue
                         );
 
+                        Type[] functionParameterTypes = Type.EmptyTypes;
+
                         var parameterType = TypeManager.TypeFor(parameter.parameterTypeSpecifier!, buildContext);
                         var cast = Expression.Convert(resolveParam, parameterType);
                         // e.g. (bundle, context) => context.Parameters["Measurement Period"]
                         var lambda = Expression.Lambda(cast, contextParameter);
+                        
+                        foreach (var annotation in parameter.annotation?.OfType<Annotation>() ?? Enumerable.Empty<Annotation>())
+                        {
+                            foreach (var tag in annotation.t ?? Enumerable.Empty<Tag>())
+                            {
+                                var name = tag.name;
+                                if (!string.IsNullOrWhiteSpace(name))
+                                {
+                                    var value = tag.value ?? string.Empty;
+                                    definitions.AddTag(ThisLibraryKey, parameter.name, functionParameterTypes, name, value);
 
+                                }
+                            }
+                        }
                         definitions.Add(ThisLibraryKey, parameter.name!, lambda);
                     }
                 }
