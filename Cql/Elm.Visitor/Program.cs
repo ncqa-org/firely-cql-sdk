@@ -61,12 +61,12 @@ public static class Program
             }
         }
         DirectoryInfo outDir;
-        if (config["o"] is { } elmArg)
+        if (config["o"] is { } b)
         {
-            var elmDir = new DirectoryInfo(elmArg);
-            if (!elmDir.Exists)
+            outDir = new DirectoryInfo(b);
+            if (!outDir.Exists)
             {
-                Console.Error.WriteLine($"-o: path {elmArg} does not exist.");
+                Console.Error.WriteLine($"-o: path {b} does not exist.");
                 return -1;
             }
         }
