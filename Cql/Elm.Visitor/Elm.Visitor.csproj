@@ -1,12 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+	<Import Project="..\..\cql-sdk.props" />
 
 	<PropertyGroup>
 		<AssemblyName>Hl7.Cql.Elm.Visitor</AssemblyName>
 		<RootNamespace>Hl7.Cql.Elm.Visitor</RootNamespace>
-		<OutputType>Exe</OutputType>
-		<TargetFramework>net8.0</TargetFramework>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
+		<Product>Data Requirements Builder</Product>
+		<Description>Builds data requirements objects from measure bundles, and a serializer to parse FHIR json with it.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>

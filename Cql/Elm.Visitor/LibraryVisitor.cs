@@ -1,13 +1,20 @@
-﻿using System;
+﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Hl7.Cql.Fhir;
 using Hl7.Cql.Packaging;
 using Hl7.Fhir.Model;
 
-namespace Hl7.Cql.Elm
+#pragma warning disable CS8604
+#pragma warning disable CS8767
+
+namespace Hl7.Cql.Elm.Visitor
 {
     public class LibraryVisitor: IExpressionVisitor
     {
@@ -62,8 +69,8 @@ namespace Hl7.Cql.Elm
 
                 foreach (var codeSystem in elm?.codeSystems ?? Enumerable.Empty<CodeSystemDef>())
                 {
-                    if (codeSystem?.name != null && codeSystem?.id != null)
-                        ; //_codeSystemDefLookup.Add(codeSystem.name, codeSystem);
+                    /*if (codeSystem?.name != null && codeSystem?.id != null)
+                        _codeSystemDefLookup.Add(codeSystem.name, codeSystem);*/
                 }
             }
         }
@@ -284,6 +291,8 @@ namespace Hl7.Cql.Elm
         /// For literals or basic expressions this is just the type, for
         /// function refs this should follow the call to a concrete type.
         /// </summary>
+        /// <param name="source">Library containing the source element for following
+        /// function calls.</param>
         /// <param name="type"></param>
         /// <returns></returns>
         private string GetReturnType(Library source, Hl7.Cql.Elm.Element type)
@@ -501,18 +510,19 @@ namespace Hl7.Cql.Elm
 
             if (def == null)
             {
-                Console.WriteLine(
+                StringBuilder sb = new();
+                sb.AppendLine(CultureInfo.InvariantCulture,
                     $"Could not find one matching overload in library {targetLib.Name} from library source {librarySource.Name} " +
                     $"for function" +
                     $" {functionRef.name}({string.Join(",", functionRef.operand.Select(_ => GetElementReturnType(librarySource, _) ?? "null"))}) [{functionRef.locator}]");
-                Console.WriteLine("Overloads are: ");
+                sb.AppendLine("Overloads are: ");
                 foreach (var x in functionDefs)
                 {
-                    Console.WriteLine(
+                    sb.AppendLine(CultureInfo.InvariantCulture,
                         $"     {x.name}({string.Join(",", x.operand.Select(_ => GetElementReturnType(targetLib, _.operandTypeSpecifier) ?? "null"))}) [{x.expression.locator}]");
                 }
 
-                throw new InvalidOperationException();
+                throw new InvalidOperationException(sb.ToString());
             }
 
             return def;
@@ -693,8 +703,8 @@ namespace Hl7.Cql.Elm
 
         public virtual void VisitRef(ExpressionRef expression)
         {
-            Library current = _current;
-            Library referenced;
+            Library? current = _current;
+            Library? referenced;
 
             // Null library names are a self reference
             if (string.IsNullOrEmpty(expression.libraryName))
@@ -727,7 +737,7 @@ namespace Hl7.Cql.Elm
 
         public virtual void VisitFunctionRef(FunctionRef expression)
         {
-            Library current = _current;
+            Library? current = _current;
 
             var referenced = GetLibrary(current, expression.libraryName);
 
@@ -741,12 +751,11 @@ namespace Hl7.Cql.Elm
             _current = current;
         }
 
-        public virtual void VisitRef(ValueSetRef expresion) { }
+        public virtual void VisitRef(ValueSetRef expression) { }
 
-        public virtual void VisitRef(CodeRef expresion) { }
+        public virtual void VisitRef(CodeRef expression) { }
 
-        public virtual void VisitRef(AliasRef expresion) { }
-
+        public virtual void VisitRef(AliasRef expression) { }
 
         public virtual void VisitConstant(Expression expression) { }
     }

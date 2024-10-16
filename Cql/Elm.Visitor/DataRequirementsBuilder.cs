@@ -1,4 +1,6 @@
-﻿using Hl7.Cql.Fhir;
+﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+
+using Hl7.Cql.Fhir;
 using Hl7.Cql.Primitives;
 using Hl7.Fhir.Model;
 using System;
@@ -9,6 +11,9 @@ using System.Threading.Tasks;
 
 namespace Hl7.Cql.Elm.Visitor
 {
+    /// <summary>
+    /// Create data requirements from measures.
+    /// </summary>
     public class DataRequirementsBuilder : LibraryVisitor
     {
         private HashSet<string> _properties = new();
@@ -24,7 +29,7 @@ namespace Hl7.Cql.Elm.Visitor
 
         // Stack that holds a function scoped stack of Maps that 
         // associate variable names (aliases) to properties or child properties
-        public Stack<Dictionary<string, string>> _path = new(new Dictionary<string, string>[] { new() });
+        private Stack<Dictionary<string, string>> _path = new(new Dictionary<string, string>[] { new() });
 
         private readonly List<string> _resourceExclusions = new()
         {
@@ -44,10 +49,12 @@ namespace Hl7.Cql.Elm.Visitor
             _valueSetFiltersTotal.Clear();
         }
 
+        /// <inheritdoc />
         public DataRequirementsBuilder(Dictionary<string, Library> libraries) : base(libraries)
         {
         }
 
+        /// <inheritdoc />
         public DataRequirementsBuilder(Bundle measureBundle) : base(measureBundle)
         {
         }
@@ -106,7 +113,6 @@ namespace Hl7.Cql.Elm.Visitor
                     || fhirType.CqlType != CqlPrimitiveType.Fhir
                     || _resourceExclusions.Contains(root))
                 {
-                    // Console.WriteLine($"Skipping invalid fhir type {n}");
                     continue;
                 }
 
@@ -235,7 +241,8 @@ namespace Hl7.Cql.Elm.Visitor
             var props = cleanPath.Split(".");
             for (int i = 1; i < props.Length; i++)
             {
-                props[i] = props[i][0].ToString().ToLower() + props[i].Substring(1);
+                props[i] = props[i][0].ToString().ToLower(System.Globalization.CultureInfo.CurrentCulture)
+                           + props[i].Substring(1);
             }
 
             cleanPath = string.Join(".", props);
@@ -259,7 +266,7 @@ namespace Hl7.Cql.Elm.Visitor
 
             _path.Push(new());
             var currentPath = _path.Peek();
-            var functionDef = GetFunctionDef(CurrentLibrary, expression);
+            var functionDef = GetFunctionDef(CurrentLibrary!, expression);
             for (int i = 0; i < functionDef.operand.Length; i++)
             {
                 var r = GetElementReturnType(expression.operand[i]);
@@ -331,7 +338,7 @@ namespace Hl7.Cql.Elm.Visitor
 
         private Tuple<string, string> ResolveCode(CodeRef codeRef)
         {
-            var lib = GetLibrary(CurrentLibrary, codeRef.libraryName);
+            var lib = GetLibrary(CurrentLibrary!, codeRef.libraryName);
             var codeInLib = lib.codes.Single(c => c.name == codeRef.name);
             var system = lib.codeSystems.Single(s => s.name == codeInLib.codeSystem.name);
 
@@ -340,7 +347,7 @@ namespace Hl7.Cql.Elm.Visitor
 
         private ValueSetDef ResolveValueSet(ValueSetRef valueSetRef)
         {
-            var lib = GetLibrary(CurrentLibrary, valueSetRef.libraryName);
+            var lib = GetLibrary(CurrentLibrary!, valueSetRef.libraryName);
             var valueSetInLib = lib.valueSets.Single(v => v.name == valueSetRef.name);
             return valueSetInLib;
 

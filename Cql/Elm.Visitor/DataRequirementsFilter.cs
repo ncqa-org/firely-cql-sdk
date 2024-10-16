@@ -1,15 +1,12 @@
-﻿using System;
+﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using System.Runtime.InteropServices.ComTypes;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Utility;
 
 namespace Hl7.Cql.Elm.Visitor
 {
@@ -37,6 +34,8 @@ namespace Hl7.Cql.Elm.Visitor
 
         public override bool TryEnterMember(string name, object value, PropertyMapping? mapping)
         {
+            if (mapping == null) throw new ArgumentException("Mapping for member was null!");
+
             // Filter top level resources
             if (mapping.ImplementingType == typeof(Bundle.EntryComponent))
             {
@@ -150,6 +149,8 @@ namespace Hl7.Cql.Elm.Visitor
 
         public override void LeaveMember(string name, object value, PropertyMapping? mapping)
         {
+            if (mapping == null) throw new ArgumentException("Mapping for member was null!");
+
             if (value is Resource)
             {
                 if (!_discardResource && _currentFilter == null) throw new InvalidOperationException();
