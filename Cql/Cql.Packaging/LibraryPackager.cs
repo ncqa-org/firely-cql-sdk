@@ -201,13 +201,19 @@ namespace Hl7.Cql.Packaging
             }
 
             var resources = new List<Resource>();
-            resources.AddRange(libraries.Values);
+            var resourceDataValues = libraries.Values.Select(resource =>
+            {
+                resource.Id = resource.Id.Replace("-", "_");
+                return resource;
+            }).ToList();
+
+            resources.AddRange(resourceDataValues);
 
             var tupleAssembly = assemblies["TupleTypes"];
 
             var tuplesBinary = new Binary
             {
-                Id = "TupleTypes-Binary",
+                Id = "TupleTypes_Binary",
                 ContentType = "application/octet-stream",
                 Data = tupleAssembly.Binary,
             };
@@ -217,7 +223,7 @@ namespace Hl7.Cql.Packaging
                 var tuplesSourceBytes = Encoding.UTF8.GetBytes(sourceKvp.Value);
                 var tuplesCSharp = new Binary
                 {
-                    Id = sourceKvp.Key.Replace("_", "-"),
+                    Id = sourceKvp.Key.Replace("-", "_"),
                     ContentType = "text/plain",
                     Data = tuplesSourceBytes,
                 };

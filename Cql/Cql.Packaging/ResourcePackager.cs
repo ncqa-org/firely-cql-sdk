@@ -31,9 +31,10 @@ namespace Hl7.Cql.Packaging
         /// <param name="cqlDir">directory to find the CQL files</param>
         /// <param name="afterPackageMutator">optional mutator for the resources prior to writing</param>
         /// <param name="cacheSize"></param>
+        /// <param name="canonicalRootUrl">optional parameter to provide Canonical root url</param>
         public void Package(DirectoryInfo elmDir, DirectoryInfo cqlDir, 
-            Action<IEnumerable<Resource>>? afterPackageMutator = null, int? cacheSize = null) =>
-            PackageCore(elmDir, cqlDir, afterPackageMutator, null);
+            Action<IEnumerable<Resource>>? afterPackageMutator = null, int? cacheSize = null , string?canonicalRootUrl = null) =>
+            PackageCore(elmDir, cqlDir, afterPackageMutator, canonicalRootUrl);
 
         /// <summary>
         /// Package the resources in the given ELM and CQL directories and output them using the writers provided in the constructor 
@@ -74,7 +75,7 @@ namespace Hl7.Cql.Packaging
         {
             if (string.IsNullOrWhiteSpace(resource.Id))
                 throw new ArgumentException("Resource must have an id", nameof(resource));
-            var path = $"{resourceCanonicalRootUrl ?? "#"}/{resource.TypeName}/{resource.Id}";
+            var path = $"{resourceCanonicalRootUrl ?? "#"}/{resource.TypeName}/{resource.Id}".Replace('-','_');
             return path;
         }
 
