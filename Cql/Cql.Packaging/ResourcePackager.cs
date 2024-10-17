@@ -75,7 +75,7 @@ namespace Hl7.Cql.Packaging
         {
             if (string.IsNullOrWhiteSpace(resource.Id))
                 throw new ArgumentException("Resource must have an id", nameof(resource));
-            var path = $"{resourceCanonicalRootUrl ?? "#"}/{resource.TypeName}/{resource.Id}".Replace('-','_');
+            var path = $"{resourceCanonicalRootUrl ?? "#"}/{resource.TypeName}/{resource.Id}";
             return path;
         }
 

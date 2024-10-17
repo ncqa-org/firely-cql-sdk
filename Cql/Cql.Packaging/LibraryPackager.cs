@@ -261,7 +261,7 @@ namespace Hl7.Cql.Packaging
                         {
                             var measure = new Measure();
                             measure.Name = measureAnnotation.value;
-                            measure.Id = library.identifier?.id!;
+                            measure.Id = library.identifier?.id!.Replace('-','_');
                             measure.Version = library.identifier?.version!;
                             measure.Status = PublicationStatus.Active;
                             measure.Date = new DateTimeIso8601(elmFile.LastWriteTimeUtc, Iso8601.DateTimePrecision.Millisecond)
