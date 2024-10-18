@@ -203,53 +203,12 @@ namespace Hl7.Cql.Packaging
             var resources = new List<Resource>();
             var resourceDataValues = libraries.Values.Select(library =>
                 {
-                    var deepCopy = new Library();
-                    deepCopy.Id = library.Id?.Replace('_', '-');
-                    deepCopy.Name = library.Name;
-                    deepCopy.Version = library.Version;
-                    deepCopy.Status = library.Status;
-                    deepCopy.Date = library.Date;
-                    deepCopy.Type = library.Type;
-                    deepCopy.Content = new List<Attachment>(library.Content.Count);
-                    foreach (var attachment in library.Content)
-                    {
-                        var attachmentCopy = new Attachment();
-                        attachmentCopy.ElementId = attachment.ElementId;
-                        attachmentCopy.ContentType = attachment.ContentType;
-                        attachmentCopy.Data = attachment.Data;
-                        deepCopy.Content.Add(attachmentCopy);
-                    }
-                    deepCopy.Parameter = new List<ParameterDefinition>(library.Parameter.Count);
-                    foreach (var parameter in library.Parameter)
-                    {
-                        var parameterCopy = new ParameterDefinition();
-                        parameterCopy.Name = parameter.Name;
-                        parameterCopy.Use = parameter.Use;
-                        parameterCopy.Min = parameter.Min;
-                        parameterCopy.Max = parameter.Max;
-                        parameterCopy.Type = parameter.Type;
-                        parameterCopy.Extension = new List<Extension>(parameter.Extension.Count);
-                        foreach (var extension in parameter.Extension)
-                        {
-                            var extensionCopy = new Extension();
-                            extensionCopy.Value = extension.Value;
-                            extensionCopy.Url = extension.Url;
-                            parameterCopy.Extension.Add(extensionCopy);
-                        }
-                        deepCopy.Parameter.Add(parameterCopy);
-                    }
-                    deepCopy.RelatedArtifact = new List<RelatedArtifact>(library.RelatedArtifact.Count);
-                    foreach (var relatedArtifact in library.RelatedArtifact)
-                    {
-                        var relatedArtifactCopy = new RelatedArtifact();
-                        relatedArtifactCopy.Type = relatedArtifact.Type;
-                        relatedArtifactCopy.Resource = relatedArtifact.Resource;
-                        deepCopy.RelatedArtifact.Add(relatedArtifactCopy);
-                    }
-                    deepCopy.Url = library.Url;
-                    return deepCopy;
-                });
-            
+                    library.Id = library.Id?.Replace('_', '-');
+                    return library;
+                }
+            );
+
+
             resources.AddRange(resourceDataValues);
 
             var tupleAssembly = assemblies["TupleTypes"];
