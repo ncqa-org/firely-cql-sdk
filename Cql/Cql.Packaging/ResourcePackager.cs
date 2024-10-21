@@ -60,7 +60,7 @@ namespace Hl7.Cql.Packaging
                 typeResolver,
                 new CqlOperatorsBinding(typeResolver, FhirTypeConverter.Create(ModelInfo.ModelInspector)),
                 new TypeManager(typeResolver),
-                resource => CanonicalUri(resource, resourceCanonicalRootUrl),
+                resourceId => CanonicalUri(resourceId, resourceCanonicalRootUrl),
                 logFactory);
 
             afterPackageMutator?.Invoke(resources);
@@ -71,11 +71,11 @@ namespace Hl7.Cql.Packaging
             }
         }
 
-        private static string CanonicalUri(Resource resource, string? resourceCanonicalRootUrl)
+        private static string CanonicalUri(string resourceId, string? resourceCanonicalRootUrl)
         {
-            if (string.IsNullOrWhiteSpace(resource.Id))
-                throw new ArgumentException("Resource must have an id", nameof(resource));
-            var path = $"{resourceCanonicalRootUrl ?? "#"}/{resource.TypeName}/{resource.Id}";
+            if (string.IsNullOrWhiteSpace(resourceId))
+                throw new ArgumentException("Resource must have an id");
+            var path = $"{resourceCanonicalRootUrl ?? "#"}/{resourceId}";
             return path;
         }
 
