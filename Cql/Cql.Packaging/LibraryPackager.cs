@@ -142,7 +142,7 @@ namespace Hl7.Cql.Packaging
             TypeResolver typeResolver,
             OperatorBinding operatorBinding,
             TypeManager typeManager,
-            Func<string, string> canon,
+            Func<string, string, string> canon,
             ILoggerFactory logFactory)
         {
             var builderLogger = logFactory.CreateLogger<ExpressionBuilder>();
@@ -274,7 +274,7 @@ namespace Hl7.Cql.Packaging
                                 End = new DateTimeIso8601(measureYear, 12, 31, 23, 59, 59, 999, 0, 0).ToString(),
                             };
                             measure.Group = new List<Measure.GroupComponent>();
-                            measure.Url = canon(measure.Id!);
+                            measure.Url = canon(measure.Id!, measure.TypeName);
                             if (library.NameAndVersion is null)
                                 throw new InvalidOperationException("Library NameAndVersion should not be null.");
                             if (!libraries.TryGetValue(library.NameAndVersion, out var libForMeasure) || libForMeasure is null)
@@ -293,7 +293,7 @@ namespace Hl7.Cql.Packaging
             FileInfo? cqlFile,
             AssemblyData assembly,
             CqlTypeToFhirTypeMapper typeCrosswalk,
-            Func<string, string> canon,
+            Func<string, string, string> canon,
             elm.Library? elmLibrary = null)
         {
             if (elmFile.Exists)
@@ -350,7 +350,7 @@ namespace Hl7.Cql.Packaging
                     library.RelatedArtifact.Add(new RelatedArtifact
                     {
                         Type = RelatedArtifact.RelatedArtifactType.DependsOn,
-                        Resource = canon(includeId),
+                        Resource = canon(includeId, "Library"),
                     });
                 }
 
@@ -390,7 +390,7 @@ namespace Hl7.Cql.Packaging
                     }
 
                 }
-                library.Url = canon(library.Id)!;
+                library.Url = canon(library.Id,library.TypeName) !;
                 return library;
             }
             else throw new ArgumentException($"Couldn't find library {elmFile.FullName}", nameof(elmFile));
