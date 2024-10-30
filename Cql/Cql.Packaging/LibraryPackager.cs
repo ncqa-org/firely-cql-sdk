@@ -208,7 +208,6 @@ namespace Hl7.Cql.Packaging
                 }
             );
 
-
             resources.AddRange(resourceDataValues);
 
             var tupleAssembly = assemblies["TupleTypes"];
@@ -314,7 +313,7 @@ namespace Hl7.Cql.Packaging
                 var library = new Hl7.Fhir.Model.Library();
                 library.Content.Add(attachment);
                 library.Type = LogicLibraryCodeableConcept;
-                string libraryId = $"{elmLibrary!.NameAndVersion}";
+                string libraryId = $"{elmLibrary!.NameAndVersion}"!.Replace('_', '-');
                 library.Id = libraryId!;
                 library.Version = elmLibrary!.identifier?.version!;
                 library.Name = elmLibrary!.identifier?.id!;
