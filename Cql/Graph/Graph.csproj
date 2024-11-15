@@ -1,8 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<Import Project="$(ProjectPath)..\..\cql-sdk.props" />
 
 	<PropertyGroup>
+		<LangVersion>10.0</LangVersion>
 		<AssemblyName>Hl7.Cql.Graph</AssemblyName>
 		<RootNamespace>Hl7.Cql.Graph</RootNamespace>
 		<Product>Graph calculation for dependent libraries</Product>

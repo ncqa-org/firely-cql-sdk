@@ -3,6 +3,7 @@
 	<Import Project="$(ProjectPath)..\..\cql-sdk.props" />
 
 	<PropertyGroup>
+		<LangVersion>10.0</LangVersion>
 		<AssemblyName>Hl7.Cql.Iso8601</AssemblyName>
 		<RootNamespace>Hl7.Cql.Iso8601</RootNamespace>
 		<Product>ISO 8601 datetime abstractions</Product>
