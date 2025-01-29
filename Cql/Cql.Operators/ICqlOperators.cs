@@ -9,6 +9,10 @@ using ListSortDirection = System.ComponentModel.ListSortDirection;
 
 namespace Hl7.Cql.Operators
 {
+    public class AlexTest
+    {
+        public long GetKeyCount;
+    }
     /// <summary>
     /// Defines the operators in the CQL specification.
     /// </summary>
@@ -25,7 +29,6 @@ namespace Hl7.Cql.Operators
         IEnumerable<T> RetrieveByCodes<T>(IEnumerable<CqlCode?>? codes = null, PropertyInfo? codeProperty = null) where T : class;
 
         #region Operators
-
         CqlQuantity? Abs(CqlQuantity? argument);
         decimal? Abs(decimal? argument);
         int? Abs(int? argument);
