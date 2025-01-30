@@ -1,4 +1,4 @@
-﻿#define ALEX_CUSTOM_HASH
+﻿#define AGW_CUSTOM_HASH
 /* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
@@ -10,7 +10,6 @@
 using Hl7.Cql.Primitives;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 
 
 namespace Hl7.Cql.ValueSets
@@ -24,13 +23,14 @@ namespace Hl7.Cql.ValueSets
         private const string NullCodeSystem = "\0";
         private readonly CqlCodeHasher _codeHasher = new();
 
-        // NOTE(agw): used for the system hash function
+#if AGW_CUSTOM_HASH
         private static int[] useOffsetArray = new int[86];
         static HashValueSetDictionary()
         {
             useOffsetArray[27] = 1;
             useOffsetArray[33] = 1;
         }
+#endif
 
         /// <summary>
         /// Adds the code to the given value set by its canonical URI.
@@ -131,9 +131,13 @@ namespace Hl7.Cql.ValueSets
         /// </summary>
         public int Count => _codesByHash.Count / 2;
 
+#if AGW_CUSTOM_HASH
 
         private static int HashSystem(string systemString)
         {
+            //NOTE(agw): each system is _almost_ a unique length.
+            // of the ones that are not a unique length, you can offset by one based on the final
+            // character. useOffsetArray determines if we need to do this.
             int useOffset = useOffsetArray[systemString.Length];
             int offset = (systemString[systemString.Length - 1] > 'm' ? 1 : 0);
             int systemHash = systemString.Length + offset * useOffset;
@@ -149,12 +153,13 @@ namespace Hl7.Cql.ValueSets
             ulong result = (x << bits) | (x >> (64 - bits));
             return result;
         }
-        private static ulong  xxHash64_ProcessSingle(ulong previous, ulong input)
+        private static ulong xxHash64_ProcessSingle(ulong previous, ulong input)
         {
             ulong result = xxHash64_RotateLeft(previous + input * PRIME64_2, 31) * PRIME64_1;
             return result;
         }
 
+        // NOTE(agw): this is NOT meant for general use. Only works in the context of 32 byte input
         private static unsafe ulong xxHash64Unsafe(Span<byte> bytes, ulong seed)
         {
             ulong hash = 0;
@@ -193,39 +198,7 @@ namespace Hl7.Cql.ValueSets
 
             return hash;
         }
-        private unsafe static long HashValueSetUrlUnsafe(string valuesetUrl)
-        {
-            long hash = 0;
-            fixed(char* p = valuesetUrl)
-            {
-                char* last4 = p + valuesetUrl.Length - 4;
-                hash = *(long*)last4;
-            }
-            return hash;
-        }
 
-        private unsafe static void CompressAndFillBytes(string valuesetUrl, string code, string system, ref Span<byte> bytes)
-        {
-            int systemHash = HashSystem(system);
-            long valuesetHash = HashValueSetUrlUnsafe(valuesetUrl);
-
-            // copy code over, add in  
-            for(int i = 0; i < code.Length; i++)
-            {
-                bytes[i] = (byte)code[i];
-            }
-
-            fixed(byte* bytePtr = bytes)
-            {
-                int* systemPtr = (int*)(bytePtr + 20);
-                *systemPtr = systemHash;
-
-                long* valuesetHashPtr = (long*)(bytePtr + 24);
-                *valuesetHashPtr = valuesetHash;
-            }
-        }
-
-#if ALEX_CUSTOM_HASH
         /// <summary>
         /// Given the assumption of HEDIS, we can assume certain things about the inputs.
         /// There is a much faster hash function for systems (almost can have unique id based on length).
@@ -235,10 +208,38 @@ namespace Hl7.Cql.ValueSets
         /// <param name="code"></param>
         /// <param name="systemUri"></param>
         /// <returns></returns>
-        public static ulong GetKey(string valueSetUri, string code, string systemUri)
+        public unsafe static ulong GetKey(string valueSetUri, string code, string systemUri)
         {
             Span<byte> bytes = stackalloc byte[32];
-            CompressAndFillBytes(valueSetUri, code, systemUri, ref bytes);
+            int systemHash = HashSystem(systemUri);
+
+            // get valueset hash
+            long valuesetHash = 0;
+            {
+                fixed (char* p = valueSetUri)
+                {
+                    char* last4 = p + valueSetUri.Length - 4;
+                    valuesetHash = *(long*)last4;
+                }
+            }
+
+            // copy code over, add in  
+            for(int i = 0; i < code.Length; i++)
+            {
+                bytes[i] = (byte)code[i];
+            }
+
+            // compress into 32 bytes
+            fixed(byte* bytePtr = bytes)
+            {
+                int* systemPtr = (int*)(bytePtr + 20);
+                *systemPtr = systemHash;
+
+                long* valuesetHashPtr = (long*)(bytePtr + 24);
+                *valuesetHashPtr = valuesetHash;
+            }
+
+            // do one pass of xxHash64
             ulong hash = xxHash64Unsafe(bytes, 0);
             return hash;
         }
@@ -248,11 +249,12 @@ namespace Hl7.Cql.ValueSets
 #endif
 
 
-#if ALEX_CUSTOM_HASH
+#if AGW_CUSTOM_HASH
         private readonly Dictionary<ulong, CqlCode> _codesByHash = new();
 #else
         private readonly Dictionary<string, CqlCode> _codesByHash = new();
 #endif
+
         private readonly Dictionary<string, HashSet<CqlCode>> _codesInValueSet =
             new(StringComparer.OrdinalIgnoreCase);
 
