@@ -1,4 +1,5 @@
-﻿/* 
+﻿#define ALEX_CUSTOM_HASH
+/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
  * 
@@ -11,80 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 
+
 namespace Hl7.Cql.ValueSets
 {
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
-    public class HedisValueSetDictionary
-    {
-            public class CodeNode
-            {
-                public CodeNode? Next;
-                public CqlCode? Code;
-                public ulong Hash;
-                public string? Valueset;
-            }
-
-            public struct CodeSlot
-            {
-                public CodeNode First;
-                public CodeNode Last;
-            }
-
-            public static readonly int backingSize = 1 << 21;
-            public static readonly ulong backingMask = (ulong)(backingSize) - 1;
-            public static CodeSlot[] backingArray = new CodeSlot[backingSize];
-        public static void Set(string valueSetUri, string? code, string? system)
-        {
-            ulong hash = HashValueSetDictionary.GetKey(valueSetUri, code, system);
-
-            int idx = (int)(hash & backingMask);
-            CodeSlot slot = backingArray[idx];
-            CodeNode node = new CodeNode() { Code = new CqlCode() { code = code, system = system }, Hash = hash, Valueset = valueSetUri };
-
-            // insert
-            if (backingArray[idx].First == null)
-            {
-                backingArray[idx].First = node;
-                backingArray[idx].Last = backingArray[idx].First;
-            }
-            else
-            {
-                backingArray[idx].Last.Next = node;
-#pragma warning disable CS8601 // Possible null reference assignment.
-                backingArray[idx].Last = backingArray[idx].Last.Next;
-#pragma warning restore CS8601 // Possible null reference assignment.
-            }
-        }
-
-        public static CqlCode? Get(string valueSetUri, string? code, string? system)
-            {
-                CqlCode? result = null;
-                ulong hash = HashValueSetDictionary.GetKey(valueSetUri, code, system);
-
-                // NOTE(agw): length is power of 2, we can use AND bit trick
-                int idx = (int)(hash & backingMask);
-                CodeSlot slot = backingArray[idx];
-                CodeNode? node = slot.First;
-
-                // NOTE(agw): may need to actually check code and system equals, can we assume unique hash?
-                while (node != null)
-                {
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
-                if (node.Code.code == code && node.Code.system.Equals(system, StringComparison.OrdinalIgnoreCase) && node.Valueset == valueSetUri)
-                    {
-                        result = node.Code;
-                        break;
-                    }
-                node = node.Next;
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
-                }
-
-                return result;
-            }
-
-        }
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
-
 
     /// <summary>
     /// Uses hash sets to identify code membership within value sets.
@@ -94,7 +24,13 @@ namespace Hl7.Cql.ValueSets
         private const string NullCodeSystem = "\0";
         private readonly CqlCodeHasher _codeHasher = new();
 
-
+        // NOTE(agw): used for the system hash function
+        private static int[] useOffsetArray = new int[86];
+        static HashValueSetDictionary()
+        {
+            useOffsetArray[27] = 1;
+            useOffsetArray[33] = 1;
+        }
 
         /// <summary>
         /// Adds the code to the given value set by its canonical URI.
@@ -114,12 +50,10 @@ namespace Hl7.Cql.ValueSets
                 throw new ArgumentNullException(nameof(code));
             }
 
-            HedisValueSetDictionary.Set(valueSetUri, code.code, code.system);
-            HedisValueSetDictionary.Set(valueSetUri, code.code, NullCodeSystem);
-
-            //_codesByHash.Add(GetKey(valueSetUri, code.code, code.system), code);
-            //var nullKey = GetKey(valueSetUri, code.code, NullCodeSystem);
-            //_codesByHash.TryAdd(nullKey, code);
+            // TODO(agw): can we get rid of these null checks? 
+            _codesByHash.Add(GetKey(valueSetUri, code.code ?? "", code.system ?? NullCodeSystem), code);
+            var nullKey = GetKey(valueSetUri, code.code ?? "", NullCodeSystem);
+            _codesByHash.TryAdd(nullKey, code);
 
             if (!_codesInValueSet.TryGetValue(valueSetUri, out var codes))
             {
@@ -137,10 +71,8 @@ namespace Hl7.Cql.ValueSets
         /// <param name="code">The code to add.</param>
         public void Set(string valueSetUri, CqlCode code)
         {
-            HedisValueSetDictionary.Set(valueSetUri, code.code, code.system);
-            HedisValueSetDictionary.Set(valueSetUri, code.code, NullCodeSystem);
-            //_codesByHash[GetKey(valueSetUri, code.code, code.system)] = code;
-            //_codesByHash[GetKey(valueSetUri, code.code, NullCodeSystem)] = code;
+            _codesByHash[GetKey(valueSetUri, code.code ?? "", code.system ?? "")] = code;
+            _codesByHash[GetKey(valueSetUri, code.code ?? "", NullCodeSystem)] = code;
             if (!_codesInValueSet.TryGetValue(valueSetUri, out var codes))
             {
                 codes = new HashSet<CqlCode>(_codeHasher)
@@ -161,13 +93,9 @@ namespace Hl7.Cql.ValueSets
         /// <param name="valueSetUri">The value set's canonical URI.</param>
         /// <param name="code">The code to check.</param>
         /// <returns><see langword="true"/> if the given code is present in the given value set.</returns>
-        //public bool IsCodeInValueSet(string valueSetUri, string code) =>
-        //    _codesByHash.ContainsKey(GetKey(valueSetUri, code, NullCodeSystem));
-        public bool IsCodeInValueSet(string valueSetUri, string code)
-        {
-            var result = HedisValueSetDictionary.Get(valueSetUri, code, NullCodeSystem) != null;
-            return result;
-        }
+
+        public bool IsCodeInValueSet(string valueSetUri, string code) =>
+            _codesByHash.ContainsKey(GetKey(valueSetUri, code, NullCodeSystem));
 
 
         /// <summary>
@@ -178,14 +106,8 @@ namespace Hl7.Cql.ValueSets
         /// <param name="code">The code to check.</param>
         /// <param name="systemUriOrOid">The code system's canonical URI or its OID.</param>
         /// <returns><see langword="true"/> if the given code is present in the given value set.</returns>
-        //public bool IsCodeInValueSet(string valueSetUri, string code, string systemUriOrOid) =>
-        //    _codesByHash.ContainsKey(GetKey(valueSetUri, code, systemUriOrOid));
-        public bool IsCodeInValueSet(string valueSetUri, string code, string systemUriOrOid)
-        {
-
-            var result = HedisValueSetDictionary.Get(valueSetUri, code, systemUriOrOid) != null;
-            return result;
-        }
+        public bool IsCodeInValueSet(string valueSetUri, string code, string systemUriOrOid) =>
+            _codesByHash.ContainsKey(GetKey(valueSetUri, code, systemUriOrOid));
 
         /// <summary>
         /// Tries to ge the codes in the value set as an <see cref="IReadOnlyCollection{CqlCode}"/>.
@@ -208,17 +130,9 @@ namespace Hl7.Cql.ValueSets
         /// Gets the total number of codes in all value sets in this dictionary.
         /// </summary>
         public int Count => _codesByHash.Count / 2;
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
-        public static long GetKeyCallCount = 0;
 
-        public static int[] useOffsetArray = new int[86];
-        static HashValueSetDictionary()
-        {
-            useOffsetArray[27] = 1;
-            useOffsetArray[33] = 1;
-        }
 
-        public static int HashSystem(string systemString)
+        private static int HashSystem(string systemString)
         {
             int useOffset = useOffsetArray[systemString.Length];
             int offset = (systemString[systemString.Length - 1] > 'm' ? 1 : 0);
@@ -228,22 +142,20 @@ namespace Hl7.Cql.ValueSets
 
         static readonly ulong PRIME64_1 = 0x9E3779B185EBCA87;
         static readonly ulong PRIME64_2 = 0xC2B2AE3D27D4EB4F;
-        //static readonly ulong PRIME64_3 = 0x165667B19E3779F9;
-        static readonly ulong PRIME64_4 = 0x85EBCA77C2B2AE63;
-        //static readonly ulong PRIME64_5 = 0x27D4EB2F165667C5;
+        static readonly ulong PRIME64_3 = 0x85EBCA77C2B2AE63;
 
-        public static ulong xxHash64_RotateLeft(ulong x, byte bits)
+        private static ulong xxHash64_RotateLeft(ulong x, byte bits)
         {
             ulong result = (x << bits) | (x >> (64 - bits));
             return result;
         }
-        public static ulong  xxHash64_ProcessSingle(ulong previous, ulong input)
+        private static ulong  xxHash64_ProcessSingle(ulong previous, ulong input)
         {
             ulong result = xxHash64_RotateLeft(previous + input * PRIME64_2, 31) * PRIME64_1;
             return result;
         }
 
-        public static unsafe ulong xxHash64Unsafe(Span<byte> bytes, ulong seed)
+        private static unsafe ulong xxHash64Unsafe(Span<byte> bytes, ulong seed)
         {
             ulong hash = 0;
 
@@ -273,15 +185,15 @@ namespace Hl7.Cql.ValueSets
                         xxHash64_RotateLeft(state[2], 12) +
                         xxHash64_RotateLeft(state[3], 18);
 
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[0])) * PRIME64_1 + PRIME64_4;
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[1])) * PRIME64_1 + PRIME64_4;
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[2])) * PRIME64_1 + PRIME64_4;
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[3])) * PRIME64_1 + PRIME64_4;
+                hash = (hash ^ xxHash64_ProcessSingle(0, state[0])) * PRIME64_1 + PRIME64_3;
+                hash = (hash ^ xxHash64_ProcessSingle(0, state[1])) * PRIME64_1 + PRIME64_3;
+                hash = (hash ^ xxHash64_ProcessSingle(0, state[2])) * PRIME64_1 + PRIME64_3;
+                hash = (hash ^ xxHash64_ProcessSingle(0, state[3])) * PRIME64_1 + PRIME64_3;
             }
 
             return hash;
         }
-        public unsafe static long HashValueSetUrlUnsafe(string valuesetUrl)
+        private unsafe static long HashValueSetUrlUnsafe(string valuesetUrl)
         {
             long hash = 0;
             fixed(char* p = valuesetUrl)
@@ -292,7 +204,7 @@ namespace Hl7.Cql.ValueSets
             return hash;
         }
 
-        public unsafe static void CompressAndFillBytes(string valuesetUrl, string code, string system, ref Span<byte> bytes)
+        private unsafe static void CompressAndFillBytes(string valuesetUrl, string code, string system, ref Span<byte> bytes)
         {
             int systemHash = HashSystem(system);
             long valuesetHash = HashValueSetUrlUnsafe(valuesetUrl);
@@ -313,18 +225,34 @@ namespace Hl7.Cql.ValueSets
             }
         }
 
-        public static ulong GetKey(string valueSetUri, string? code, string? systemUri)
+#if ALEX_CUSTOM_HASH
+        /// <summary>
+        /// Given the assumption of HEDIS, we can assume certain things about the inputs.
+        /// There is a much faster hash function for systems (almost can have unique id based on length).
+        /// This hash also reduces string allocations.
+        /// </summary>
+        /// <param name="valueSetUri"></param>
+        /// <param name="code"></param>
+        /// <param name="systemUri"></param>
+        /// <returns></returns>
+        public static ulong GetKey(string valueSetUri, string code, string systemUri)
         {
-            // TODO0(agw): we don't want to take a null code or system (get rid of if statements)
             Span<byte> bytes = stackalloc byte[32];
-            CompressAndFillBytes(valueSetUri, code ?? "", systemUri ?? "", ref bytes);
+            CompressAndFillBytes(valueSetUri, code, systemUri, ref bytes);
             ulong hash = xxHash64Unsafe(bytes, 0);
             return hash;
         }
+#else
+        public static string GetKey(string valueSetUri, string? code, string? systemUri) =>
+            $"{valueSetUri.ToLowerInvariant()}\0{systemUri?.ToLowerInvariant() ?? ""}\0{code?.ToLowerInvariant() ?? ""}";
+#endif
 
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
+#if ALEX_CUSTOM_HASH
         private readonly Dictionary<ulong, CqlCode> _codesByHash = new();
+#else
+        private readonly Dictionary<string, CqlCode> _codesByHash = new();
+#endif
         private readonly Dictionary<string, HashSet<CqlCode>> _codesInValueSet =
             new(StringComparer.OrdinalIgnoreCase);
 
