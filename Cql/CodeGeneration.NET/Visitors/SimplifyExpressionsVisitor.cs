@@ -33,7 +33,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
     {
         private bool _atRoot = true;
         private readonly List<BinaryExpression> _assignments = new();
-        private Stack<BlockExpression> blocks = new();
+        private Stack<BlockExpression> blocks = new(); // TODO0(agw): may not need this stack...
 
         public IReadOnlyCollection<BinaryExpression> Assignments => _assignments;
 
@@ -196,6 +196,9 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             var assignResultFalse = Expression.Assign(resultParam, Expression.Constant(false, typeof(bool?)));
             var assignResultNull = Expression.Assign(resultParam, Expression.Constant(null, typeof(bool?)));
 
+            ////////////////////////////////////////
+            // ~ Do Left Side
+
             bool leftIsCall = isAndOr(node.Arguments[0]);
             if(leftIsCall)
             {
@@ -205,7 +208,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 var childInitial = expressionIsOrCall(leftExpression) ? false : true;
 
                 var childResult = Expression.Parameter(typeof(bool?));
-                var assignChild = Expression.Assign(childResult, Expression.Convert(Expression.Constant(childInitial, typeof(bool?)), typeof(bool?)));
+                var assignChild = Expression.Assign(childResult, Expression.Constant(childInitial, typeof(bool?)));
                 expressions.Add(assignChild);
                 parameterExpressions.Add(childResult);
 
@@ -222,8 +225,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             {
                 // actually do left
                 var tempLeft = Expression.Parameter(typeof(bool?));
-                var leftConverted = Expression.Convert(node.Arguments[0], typeof(bool?));
-                var doLeft = Expression.Assign(tempLeft, leftConverted);
+                var doLeft = Expression.Assign(tempLeft, node.Arguments[0]);
 
                 expressions.Add(doLeft);
 
@@ -260,7 +262,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 var childResult = Expression.Parameter(typeof(bool?));
 
                 var childInitial = expressionIsOrCall(rightExpression) ? false : true;
-                var assignChild = Expression.Assign(childResult, Expression.Convert(Expression.Constant(childInitial, typeof(bool?)), typeof(bool?)));
+                var assignChild = Expression.Assign(childResult, Expression.Constant(childInitial, typeof(bool?)));
                 expressions.Add(assignChild);
                 parameterExpressions.Add(childResult);
 
@@ -281,8 +283,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 BlockExpression? rightBlock = null;
                 {
                     var tempRight = Expression.Parameter(typeof(bool?));
-                    var rightConverted = Expression.Convert(node.Arguments[1], typeof(bool?));
-                    var doRight = Expression.Assign(tempRight, rightConverted);
+                    var doRight = Expression.Assign(tempRight, node.Arguments[1]);
 
                     BinaryExpression? rightCheckExpression = null;
                     BinaryExpression? assignExpression = null;
@@ -326,12 +327,12 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             BlockExpression? blockExpression = null;
             if(expressionIsOrCall(node))
             {
-                var assignFalse = Expression.Assign(resultParam, Expression.Convert(Expression.Constant(false, typeof(bool?)), typeof(bool?)));
+                var assignFalse = Expression.Assign(resultParam, Expression.Constant(false, typeof(bool?)));
                 expressions.Add(assignFalse);
             }
             else if(expressionIsAndCall(node))
             {
-                var assignTrue = Expression.Assign(resultParam, Expression.Convert(Expression.Constant(true, typeof(bool?)), typeof(bool?)));
+                var assignTrue = Expression.Assign(resultParam, Expression.Constant(true, typeof(bool?)));
                 expressions.Add(assignTrue);
             }
             else
@@ -344,7 +345,6 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             expressions.Add(blockExpression);
             expressions.Add(resultParam);
 
-            // TODO(agw): add expressions to top level block rn
             var parentBlock = blocks.Peek();
             var updatedParent = Expression.Block(parentBlock.Variables.Append(resultParam), parentBlock.Expressions.Concat(expressions));
             blocks.Pop();

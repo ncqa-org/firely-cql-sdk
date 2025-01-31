@@ -305,6 +305,8 @@ namespace Hl7.Cql.CodeGeneration.NET
         {
             string result = "";
             var conditionalSb = new StringBuilder();
+
+            // NOTE(agw): no return type, regular if statement to do procedural code
             if (ce.Type == typeof(void))
             {
                 var ifTrue = $"{ConvertExpression(indent, ce.IfTrue, false)}";
@@ -641,8 +643,8 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                 var rightCode = ConvertExpression(indent, right, false);
                 string typeDeclaration = "var";
-                if (rightCode == "null" || rightCode == "default")
-                    typeDeclaration = PrettyTypeName(left.Type);
+                //if (rightCode == "null" || rightCode == "default")
+                typeDeclaration = PrettyTypeName(left.Type);
 
                 // TODO(agw): only have type declaration if parameter is local to the block
                 string assignment = "";
@@ -676,7 +678,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 var rightCode = ConvertExpression(indent, right, false);
                 if (right is ConstantExpression ce && ce.Value == null)
                     rightCode = "null";
-                var binaryString = $"{leadingIndentString}({leftCode} {@operator} {rightCode})";
+                var binaryString = $"{leadingIndentString}{leftCode} {@operator} {rightCode}";
                 return binaryString;
             }
         }
