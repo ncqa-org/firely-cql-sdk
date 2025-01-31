@@ -28,6 +28,10 @@ namespace Hl7.Cql.CodeGeneration.NET
             ContextLibraries = contextLibraries;
         }
 
+        public Stack<BlockExpression> blockStack = new Stack<BlockExpression>();
+        public Stack<ParameterExpression> parameterStack = new Stack<ParameterExpression>();
+        public HashSet<ParameterExpression> parameterExpressions = new HashSet<ParameterExpression>();
+
         public string ConvertExpression(int indent, Expression expression, bool leadingIndent = true)
         {
             var leadingIndentString = leadingIndent ? IndentString(indent) : string.Empty;
@@ -123,6 +127,13 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             sb.AppendLine(indent, "{");
 
+            foreach(var param in block.Variables)
+            {
+                parameterExpressions.Add(param);
+            }
+
+            blockStack.Push(block);
+
             var lastExpression = block.Expressions.LastOrDefault();
             var isFirstStatement = true;
 
@@ -130,24 +141,39 @@ namespace Hl7.Cql.CodeGeneration.NET
             {
                 if (ReferenceEquals(childStatement, lastExpression))
                 {
-
-                    if (childStatement is not CaseWhenThenExpression)
+                    if (childStatement is not CaseWhenThenExpression && childStatement is not BlockExpression && childStatement is not DefaultExpression)
                     {
                         if (!isFirstStatement) sb.AppendLine();
                         sb.Append(indent + 1, "return ");
+                        sb.Append(ConvertExpression(indent + 1, childStatement, false));
+                        sb.AppendLine(";");
                     }
-                    sb.Append(ConvertExpression(indent + 1, childStatement, false));
+                    else if (childStatement is not DefaultExpression)
+                    {
+                        sb.Append(ConvertExpression(indent + 1, childStatement, false));
+                        sb.AppendLine(";");
+                    }
                 }
-                else
+                else if (childStatement is not DefaultExpression)
                 {
                     sb.Append(ConvertExpression(indent + 1, childStatement));
+                    if (childStatement is not ConditionalExpression)
+                    {
+                        sb.AppendLine(";");
+                    }
                 }
 
-                sb.AppendLine(";");
                 isFirstStatement = false;
             }
 
             sb.Append(indent, "}");
+
+            foreach(var param in block.Variables)
+            {
+                parameterExpressions.Remove(param);
+            }
+
+            blockStack.Pop();
 
             return sb.ToString();
         }
@@ -277,21 +303,58 @@ namespace Hl7.Cql.CodeGeneration.NET
 
         private string convertConditionalExpression(int indent, string leadingIndentString, ConditionalExpression ce)
         {
+            string result = "";
             var conditionalSb = new StringBuilder();
-            conditionalSb.Append(leadingIndentString);
-            conditionalSb.Append('(');
-            var test = ConvertExpression(indent, ce.Test, false);
-            conditionalSb.AppendLine(CultureInfo.InvariantCulture, $"{Parenthesize(test)}");
+            if (ce.Type == typeof(void))
+            {
+                var ifTrue = $"{ConvertExpression(indent, ce.IfTrue, false)}";
+                var ifFalse = $"{ConvertExpression(indent, ce.IfFalse, false)}";
+                var test = ConvertExpression(indent, ce.Test, false);
+                conditionalSb.Append(CultureInfo.InvariantCulture, $"{leadingIndentString}if (");
+                conditionalSb.Append(test);
+                conditionalSb.Append(")\n");
+                if(ce.IfTrue.NodeType != ExpressionType.Block)
+                {
+                    conditionalSb.Append(CultureInfo.InvariantCulture, $"{IndentString(indent+1)}{ifTrue};\n");
+                }
+                else
+                {
+                    conditionalSb.Append(CultureInfo.InvariantCulture, $"{ifTrue}\n");
+                }
 
-            var ifTrue = $"{Parenthesize(ConvertExpression(indent + 2, ce.IfTrue, false))}";
-            var ifFalse = $"{Parenthesize(ConvertExpression(indent + 2, ce.IfFalse, false))}";
-            conditionalSb.AppendLine(CultureInfo.InvariantCulture, $"{IndentString(indent + 1)}? {ifTrue}");
-            conditionalSb.Append(CultureInfo.InvariantCulture, $"{IndentString(indent + 1)}: {ifFalse})");
-
-            if (ce.IfTrue.Type != ce.Type || ce.IfFalse.Type != ce.Type)
-                return $"(({PrettyTypeName(ce.Type)}){conditionalSb})";
+                if (ce.IfFalse.NodeType != ExpressionType.Default)
+                {
+                    conditionalSb.AppendLine(CultureInfo.InvariantCulture, $"{leadingIndentString}else");
+                    if (ce.IfFalse.NodeType != ExpressionType.Block)
+                    {
+                        conditionalSb.Append(CultureInfo.InvariantCulture, $"{IndentString(indent+1)}{ifFalse};\n");
+                    }
+                    else
+                    {
+                        conditionalSb.Append(CultureInfo.InvariantCulture, $"{ifFalse}\n");
+                    }
+                }
+                result = conditionalSb.ToString();
+            }
             else
-                return conditionalSb.ToString();
+            {
+                conditionalSb.Append(leadingIndentString);
+                conditionalSb.Append('(');
+                var test = ConvertExpression(indent, ce.Test, false);
+                conditionalSb.AppendLine(CultureInfo.InvariantCulture, $"{Parenthesize(test)}");
+
+                var ifTrue = $"{Parenthesize(ConvertExpression(indent + 2, ce.IfTrue, false))}";
+                var ifFalse = $"{Parenthesize(ConvertExpression(indent + 2, ce.IfFalse, false))}";
+                conditionalSb.AppendLine(CultureInfo.InvariantCulture, $"{IndentString(indent + 1)}? {ifTrue}");
+                conditionalSb.Append(CultureInfo.InvariantCulture, $"{IndentString(indent + 1)}: {ifFalse})");
+
+                if (ce.IfTrue.Type != ce.Type || ce.IfFalse.Type != ce.Type)
+                    result = $"(({PrettyTypeName(ce.Type)}){conditionalSb})";
+                else
+                    result = conditionalSb.ToString();
+            }
+
+            return result;
         }
 
         private string convertCaseWhenThenExpression(int indent, CaseWhenThenExpression conditional)
@@ -501,7 +564,9 @@ namespace Hl7.Cql.CodeGeneration.NET
             else
                 funcSb.AppendLine();
 
-            return funcSb.ToString();
+            string result = funcSb.ToString();
+
+            return result; 
         }
 
 
@@ -579,17 +644,38 @@ namespace Hl7.Cql.CodeGeneration.NET
                 if (rightCode == "null" || rightCode == "default")
                     typeDeclaration = PrettyTypeName(left.Type);
 
-                var assignment = $"{leadingIndentString}{typeDeclaration} {paramName(parameter)} = {rightCode}";
+                // TODO(agw): only have type declaration if parameter is local to the block
+                string assignment = "";
+                bool parameterIsLocal = blockStack.Peek().Variables.Contains(parameter);
+                if(parameterIsLocal == false && parameterExpressions.Contains(parameter))
+                {
+                    if (right is ConstantExpression ce && ce.Value == null)
+                        rightCode = "null";
+                    assignment = $"{leadingIndentString}{paramName(parameter)} = {rightCode}";
+                }
+                else
+                {
+                    assignment = $"{leadingIndentString}{typeDeclaration} {paramName(parameter)} = {rightCode}";
+                }
                 return assignment;
             }
             else
             {
-                var @operator = binary.NodeType == ExpressionType.Equal && right is ConstantExpression
+                bool rightIsPrimative = right.Type.IsPrimitive;
+                if(Nullable.GetUnderlyingType(right.Type) != null)
+                {
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
+                    rightIsPrimative = Nullable.GetUnderlyingType(right.Type).IsPrimitive;
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
+                }
+                var @operator = binary.NodeType == ExpressionType.Equal && right is ConstantExpression && !rightIsPrimative
                     ? "is"
                     : BinaryOperatorFor(binary.NodeType);
 
                 var leftCode = ConvertExpression(indent, left, false);
                 var rightCode = ConvertExpression(indent, right, false);
+                if (right is ConstantExpression ce && ce.Value == null)
+                    rightCode = "null";
                 var binaryString = $"{leadingIndentString}({leftCode} {@operator} {rightCode})";
                 return binaryString;
             }
