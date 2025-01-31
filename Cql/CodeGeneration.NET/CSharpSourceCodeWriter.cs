@@ -311,7 +311,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                         var cachedValueName = DefinitionCacheKeyForMethod(methodName!);
                         var returnType = ExpressionConverter.PrettyTypeName(overload.Item2.ReturnType);
                         var privateMethodName = PrivateMethodNameFor(methodName!);
-                        writer.WriteLine(indentLevel, $"{cachedValueName} = new Lazy<{returnType}>(this.{privateMethodName}(context));");
+                        writer.WriteLine(indentLevel, $"{cachedValueName} = new Lazy<{returnType}>(() => this.{privateMethodName}(context));");
                     }
                 }
             }
