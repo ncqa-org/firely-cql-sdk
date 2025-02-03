@@ -21,9 +21,11 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
     internal class LocalVariableDeduper : ExpressionVisitor
     {
         private readonly Stack<Dictionary<ParameterExpression, ParameterExpression>> _replacementStack = new();
+        private Stack<ParameterExpression> parentParameterExpressions = new();
 
         protected override Expression VisitBlock(BlockExpression node)
         {
+            // TODO0(agw): this can check for parent blocks too!
             var localAssignments = node.Expressions
                             .OfType<BinaryExpression>()
                             .Where(be => be.Left is ParameterExpression pe && node.Variables.Contains(pe));

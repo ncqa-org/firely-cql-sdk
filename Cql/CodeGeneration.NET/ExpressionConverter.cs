@@ -31,6 +31,7 @@ namespace Hl7.Cql.CodeGeneration.NET
         public Stack<BlockExpression> blockStack = new Stack<BlockExpression>();
         public Stack<ParameterExpression> parameterStack = new Stack<ParameterExpression>();
         public HashSet<ParameterExpression> parameterExpressions = new HashSet<ParameterExpression>();
+        public HashSet<ParameterExpression> declaredParameters = new HashSet<ParameterExpression>();
 
         public string ConvertExpression(int indent, Expression expression, bool leadingIndent = true)
         {
@@ -649,7 +650,8 @@ namespace Hl7.Cql.CodeGeneration.NET
                 // TODO(agw): only have type declaration if parameter is local to the block
                 string assignment = "";
                 bool parameterIsLocal = blockStack.Peek().Variables.Contains(parameter);
-                if(parameterIsLocal == false && parameterExpressions.Contains(parameter))
+                bool alreadyDeclared = parameterIsLocal == false || (parameterIsLocal == true && declaredParameters.Contains(parameter));
+                if(alreadyDeclared == true)
                 {
                     if (right is ConstantExpression ce && ce.Value == null)
                         rightCode = "null";
@@ -658,6 +660,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 else
                 {
                     assignment = $"{leadingIndentString}{typeDeclaration} {paramName(parameter)} = {rightCode}";
+                    declaredParameters.Add(parameter);
                 }
                 return assignment;
             }

@@ -225,23 +225,25 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             {
                 // actually do left
                 var tempLeft = Expression.Parameter(typeof(bool?));
+                parameterExpressions.Add(tempLeft);
                 var doLeft = Expression.Assign(tempLeft, node.Arguments[0]);
 
                 expressions.Add(doLeft);
 
-                BinaryExpression? checkExpression = null;
                 BinaryExpression? assignExpression = null;
+                bool checkValue = false;
                 if(expressionIsOrCall(node))
                 {
-                    checkExpression = Expression.Equal(tempLeft, Expression.Constant(true, typeof(bool?)));
+                    checkValue = true;
                     assignExpression = assignResultTrue;
                 }
                 else
                 {
-                    checkExpression = Expression.Equal(tempLeft, Expression.Constant(false, typeof(bool?)));
+                    checkValue = false;
                     assignExpression = assignResultFalse;
                 }
 
+                Expression checkExpression = Expression.Equal(tempLeft, Expression.Constant(checkValue, typeof(bool?)));
                 var checkLeftTrueIf = Expression.IfThen(checkExpression, assignExpression);
                 expressions.Add(checkLeftTrueIf);
 
@@ -258,23 +260,27 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             bool rightIsCall = isAndOr(node.Arguments[1]);
             if (rightIsCall)
             {
+                // right is call, create a new variable for local result
                 MethodCallExpression rightExpression = (MethodCallExpression)node.Arguments[1];
                 var childResult = Expression.Parameter(typeof(bool?));
 
                 var childInitial = expressionIsOrCall(rightExpression) ? false : true;
                 var assignChild = Expression.Assign(childResult, Expression.Constant(childInitial, typeof(bool?)));
+
                 expressions.Add(assignChild);
                 parameterExpressions.Add(childResult);
 
+                // get right block
                 BlockExpression rightBlock = doAndOr(rightExpression, childResult);
 
-                bool checkValue = expressionIsOrCall(rightExpression) ? false : true;
-                BinaryExpression checkExpression = Expression.Equal(resultParam, Expression.Constant(checkValue, typeof(bool?)));
-
+                // assign parent to child result
                 var assignParent = Expression.Assign(resultParam, childResult);
                 var endingExpressions = new Expression[] {assignParent, Expression.Empty()};
                 rightBlock = Expression.Block(rightBlock.Variables, rightBlock.Expressions.Concat(endingExpressions));
 
+                // if/then block to continue
+                bool checkValue = expressionIsOrCall(rightExpression) ? false : true;
+                BinaryExpression checkExpression = Expression.Equal(resultParam, Expression.Constant(checkValue, typeof(bool?)));
                 var checkDoRight = Expression.IfThen(checkExpression, rightBlock);
                 expressions.Add(checkDoRight);
             }
@@ -285,25 +291,27 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                     var tempRight = Expression.Parameter(typeof(bool?));
                     var doRight = Expression.Assign(tempRight, node.Arguments[1]);
 
-                    BinaryExpression? rightCheckExpression = null;
                     BinaryExpression? assignExpression = null;
+                    bool rightCheckValue = false;
                     if(expressionIsOrCall(node))
                     {
-                        rightCheckExpression = Expression.Equal(tempRight, Expression.Constant(true, typeof(bool?)));
+                        rightCheckValue = true;
                         assignExpression = assignResultTrue;
                     }
                     else
                     {
-                        rightCheckExpression = Expression.Equal(tempRight, Expression.Constant(false, typeof(bool?)));
+                        rightCheckValue = false;
                         assignExpression = assignResultFalse;
                     }
+
+                    Expression rightCheckExpression = Expression.Equal(tempRight, Expression.Constant(rightCheckValue, typeof(bool?)));
                     var checkRightIf = Expression.IfThen(rightCheckExpression, assignExpression);
 
                     var checkRightTrue = Expression.Equal(tempRight, Expression.Constant(true, typeof(bool?)));
                     var checkRightNull = Expression.Equal(tempRight, Expression.Constant(null, typeof(bool?)));
                     var checkRightNullIf = Expression.IfThen(checkRightNull, assignResultNull);
 
-                    rightBlock = Expression.Block(doRight, checkRightIf, checkRightNullIf, Expression.Empty());
+                    rightBlock = Expression.Block(new[] { tempRight }, doRight, checkRightIf, checkRightNullIf, Expression.Empty());
                 }
 
                 bool checkValue = expressionIsOrCall(node) ? false : true;
@@ -355,12 +363,88 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
         protected override Expression VisitConditional(ConditionalExpression node)
         {
+            Expression result = node;
             // Turn every nested conditional except the most simple ones into a Case/when/then
-            if (isSimpleConditional(node))
-                return node;
+            if (true || isSimpleConditional(node))
+            {
+                // TODO(agw): pull out and/or statements to parent block
+                Expression inner = node.Test;
+                if(node.Test.NodeType == ExpressionType.Coalesce)
+                {
+                    var coalesceExpression = (BinaryExpression)node.Test;
+                    inner = coalesceExpression.Left;
+                }
 
-            var cwt = toCWT(node);
-            return Visit(cwt);
+                bool testIsAndOrCall = isAndOr(inner);
+                if(testIsAndOrCall)
+                {
+                    BlockExpression parentBlock = blocks.Peek();
+
+                    ParameterExpression resultParam = Expression.Parameter(typeof(bool?));
+                    BlockExpression andOrBlock = doAndOr((MethodCallExpression)inner, resultParam);
+
+                    Expression? assignExpression = null;
+                    if(expressionIsOrCall(inner))
+                    {
+                        assignExpression = Expression.Assign(resultParam, Expression.Constant(false, typeof(bool?)));
+                    }
+                    else
+                    {
+                        assignExpression = Expression.Assign(resultParam, Expression.Constant(true, typeof(bool?)));
+                    }
+
+
+                    var newTest = Expression.Equal(resultParam, Expression.Constant(true, typeof(bool?)));
+
+                    var visitedIfTrue = doVisit(node.IfTrue);
+                    var visitedIfFalse = doVisit(node.IfFalse);
+
+                    var newConditional = Expression.Condition(newTest, visitedIfTrue, visitedIfFalse);
+
+                    Expression toAdd = newConditional;
+
+                    if(newConditional.Type == typeof(bool?))
+                    {
+                        toAdd = Expression.Assign(resultParam, newConditional);
+                    }
+
+                    var expressions = new List<Expression>(parentBlock.Expressions.Count() + 1);
+
+                    int idxOfConditional = parentBlock.Expressions.IndexOf(node);
+
+                    // copy until conditional node
+                    for(int i = 0; i < idxOfConditional; i += 1)
+                    {
+                        expressions.Add(parentBlock.Expressions[i]);
+                    }
+
+                    expressions.Add(assignExpression);
+                    expressions.Add(andOrBlock);
+                    expressions.Add(toAdd);
+
+                    result = resultParam;
+
+                    // add remaining
+                    for (int i = idxOfConditional + 1; i < parentBlock.Expressions.Count(); i += 1)
+                    {
+                        expressions.Add(parentBlock.Expressions[i]);
+                    }
+
+                    var parameters = parentBlock.Variables.Append(resultParam);
+                    BlockExpression newBlock = Expression.Block(parameters, expressions);
+
+                    blocks.Pop();
+                    blocks.Push(newBlock);
+                }
+            }
+            else
+            {
+                result = toCWT(node);
+                result = Visit(result);
+            }
+
+
+            return result;
 
             // simple a ? b : c, with simple b and c
             bool isSimpleConditional(ConditionalExpression node)
