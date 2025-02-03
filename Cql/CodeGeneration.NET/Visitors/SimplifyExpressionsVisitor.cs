@@ -211,6 +211,8 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             ////////////////////////////////////////
             // ~ Do Left Side
             var tempLeft = Expression.Parameter(typeof(bool?));
+            Expression? leftThen = null;
+            Expression? leftCheck = null;
             {
                 parameterExpressions.Add(tempLeft);
 
@@ -233,13 +235,14 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
                 Expression checkExpression = Expression.Equal(tempLeft, Expression.Constant(checkValue, typeof(bool?)));
                 var checkLeftTrueIf = Expression.IfThen(checkExpression, assignExpression);
-                expressions.Add(checkLeftTrueIf);
-
+                leftThen = assignExpression;
+                leftCheck = checkExpression;
+                //expressions.Add(checkLeftTrueIf);
             }
-
 
             ////////////////////////////////////////
             // ~ Do Right Side
+            Expression? rightThen = null;
             {
                 BlockExpression? rightBlock = null;
                 {
@@ -271,8 +274,16 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                     var rightExpressions = new List<Expression>();
                     rightExpressions.Add(initialAssign);
                     rightExpressions.Add(doRight);
-                    rightExpressions.Add(checkRightIf);
-                    rightExpressions.Add(checkRightNullIf);
+
+                    var checkLeftNull = Expression.Equal(tempLeft, Expression.Constant(null, typeof(bool?)));
+
+                    var c0 = new CaseWhenThenExpression.WhenThenCase(rightCheckExpression, Expression.Block(new Expression[] { assignExpression, Expression.Empty() }));
+                    var c1 = new CaseWhenThenExpression.WhenThenCase(checkRightNull, Expression.Block(new Expression[] { assignResultNull, Expression.Empty() }));
+                    var c2 = new CaseWhenThenExpression.WhenThenCase(checkLeftNull, Expression.Block(new Expression[] { assignResultNull, Expression.Empty() }));
+
+                    CaseWhenThenExpression cwt = new CaseWhenThenExpression(new[] { c0, c1, c2 }, Expression.Block(new Expression[] { Expression.Empty(), Expression.Empty() }));
+
+                    rightExpressions.Add(cwt);
                     rightExpressions.Add(Expression.Empty());
 
                     rightBlock = Expression.Block(new[] { tempRight }, rightExpressions);
@@ -281,16 +292,12 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 bool checkValue = expressionIsOrCall(node) ? false : true;
                 BinaryExpression checkExpression = Expression.Equal(resultParam, Expression.Constant(checkValue, typeof(bool?)));
 
+                rightThen = rightBlock;
+
                 var checkDoRight = Expression.IfThen(checkExpression, rightBlock);
-                expressions.Add(checkDoRight);
-
-                // add null check
-                var checkLeftNull = Expression.Equal(tempLeft, Expression.Constant(null, typeof(bool?)));
-                var checkResult = Expression.Equal(tempLeft, Expression.Constant(checkValue, typeof(bool?))); 
-                var checkLeftNullIf = Expression.IfThen(Expression.AndAlso(checkResult, checkLeftNull), assignResultNull);
-                expressions.Add(checkLeftNullIf);
+                //expressions.Add(checkDoRight);
             }
-
+            expressions.Add(Expression.IfThenElse(leftCheck, leftThen, rightThen));
             expressions.Add(Expression.Empty());
             result = Expression.Block(parameterExpressions, expressions);
             return result;
