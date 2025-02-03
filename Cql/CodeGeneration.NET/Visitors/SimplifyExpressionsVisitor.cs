@@ -85,6 +85,8 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 ElmAsExpression or
                 NullConditionalMemberExpression => base.Visit(node),
 
+                LambdaExpression lambda => VisitLambda(lambda),
+
                 BlockExpression block => VisitBlock(block),
                 MethodCallExpression methodCall => VisitMethodCall(methodCall),
 
@@ -128,6 +130,20 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             var result = blocks.Pop();
             return result;
         }
+
+        //protected Expression VisitLambda(LambdaExpression node)
+        //{
+        //    Expression? result = node;
+
+        //    BlockExpression newBlock = Expression.Block(node.Parameters);
+        //    blocks.Push(newBlock);
+        //    var newBody = Visit(node.Body);
+        //    newBody = blocks.Pop();
+
+        //    result = Expression.Lambda(newBody, node.Parameters);
+
+        //    return result;
+        //}
 
         protected bool isAndOr(Expression node)
         {
@@ -194,11 +210,12 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
             ////////////////////////////////////////
             // ~ Do Left Side
+            var tempLeft = Expression.Parameter(typeof(bool?));
             {
-                var tempLeft = Expression.Parameter(typeof(bool?));
                 parameterExpressions.Add(tempLeft);
 
                 var expr = DoInBlockAndAssign(node.Arguments[0], tempLeft, true);
+                expressions.Add(Expression.Assign(tempLeft, Expression.Default(typeof(bool?))));
                 expressions.Add(expr);
 
                 BinaryExpression? assignExpression = null;
@@ -218,10 +235,6 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 var checkLeftTrueIf = Expression.IfThen(checkExpression, assignExpression);
                 expressions.Add(checkLeftTrueIf);
 
-                // add null check
-                var checkLeftNull = Expression.Equal(tempLeft, Expression.Constant(null, typeof(bool?)));
-                var checkLeftNullIf = Expression.IfThen(checkLeftNull, assignResultNull);
-                expressions.Add(checkLeftNullIf);
             }
 
 
@@ -270,6 +283,12 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
                 var checkDoRight = Expression.IfThen(checkExpression, rightBlock);
                 expressions.Add(checkDoRight);
+
+                // add null check
+                var checkLeftNull = Expression.Equal(tempLeft, Expression.Constant(null, typeof(bool?)));
+                var checkResult = Expression.Equal(tempLeft, Expression.Constant(checkValue, typeof(bool?))); 
+                var checkLeftNullIf = Expression.IfThen(Expression.AndAlso(checkResult, checkLeftNull), assignResultNull);
+                expressions.Add(checkLeftNullIf);
             }
 
             expressions.Add(Expression.Empty());
@@ -286,6 +305,12 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             }
             else
             {
+                if(node.Method.Name.Contains("Exists"))
+                {
+#pragma warning disable CS0219 // Variable is assigned but its value is never used
+                    int a = 0;
+#pragma warning restore CS0219 // Variable is assigned but its value is never used
+                }
                 var newArguments = new List<Expression>();
                 foreach(var arg in node.Arguments)
                 {
@@ -332,6 +357,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             return resultParam;
         }
 
+        // TODO(agw): make this more clear what it does, maybe split into two
         protected Expression DoInBlockAndAssign(Expression toVisit, Expression resultParam, bool canReturnDirect = false)
         {
             var ifBlock = Expression.Block();
@@ -344,12 +370,27 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             Expression? result = null;
             if(canReturnDirect && filledBlock.Expressions.Count() == 1)
             {
-                var assign = Expression.Assign(resultParam, toVisit);
-                result = assign;
+                if(toVisit.Type != resultParam.Type)
+                {
+                    result = Expression.Assign(resultParam, Expression.Convert(toVisit, resultParam.Type));
+                }
+                else
+                {
+                    result = Expression.Assign(resultParam, toVisit);
+                }
             }
             else
             {
-                var assign = Expression.Assign(resultParam, conditionalResult);
+                Expression? assign = null;
+                if(toVisit.Type != resultParam.Type)
+                {
+                    assign = Expression.Assign(resultParam, Expression.Convert(conditionalResult, resultParam.Type));
+                }
+                else
+                {
+                    assign = Expression.Assign(resultParam, conditionalResult);
+                }
+
                 var ifTrueExpressions = new List<Expression>();
 
                 for (int i = 0; i < filledBlock.Expressions.Count(); i += 1)
@@ -380,7 +421,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
             BlockExpression parentBlock = blocks.Peek();
 
-            ParameterExpression resultParam = Expression.Parameter(typeof(bool?));
+            ParameterExpression resultParam = Expression.Parameter(node.IfTrue.Type);
             ParameterExpression testParam = Expression.Parameter(typeof(bool?));
 
             Expression testAssign = Expression.Assign(testParam, Expression.Default(typeof(bool?)));
@@ -410,7 +451,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 expressions.Add(parentBlock.Expressions[i]);
             }
 
-            expressions.Add(Expression.Assign(resultParam, Expression.Default(typeof(bool?))));
+            expressions.Add(Expression.Assign(resultParam, Expression.Default(resultParam.Type)));
             expressions.Add(testAssign);
             expressions.Add(testBlock);
             expressions.Add(toAdd);
@@ -500,13 +541,14 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             return newBody;
         }
 
-        protected override Expression VisitLambda<T>(Expression<T> node)
+        protected Expression VisitLambda(LambdaExpression node)
         {
             // Create a new visitor, since we're the new root that can hold
             // a block of assignments.
             var nestedVisitor = new SimplifyExpressionsVisitor();
             var body = nestedVisitor.Visit(node.Body);
-            return node.Update(body, node.Parameters);
+            var result = Expression.Lambda(body, node.Parameters);
+            return result;
         }
 
         /// <summary>
@@ -531,6 +573,56 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
         /// </summary>
         protected Expression VisitCaseWhenThenExpression(CaseWhenThenExpression node)
         {
+            // convert to recursive conditionals, call conditional visit
+
+            /*
+            case    
+                when "A" then true
+                when "B" then false
+                else null
+            end
+
+            if("A") { true }
+            else
+            {
+                if("B") {false}
+                else
+                {
+                    null
+                }
+            }
+
+            */
+
+            Stack<Expression> whens = new Stack<Expression>();
+            foreach (var wt in node.WhenThenCases)
+            {
+                whens.Push(wt.When);
+            }
+
+            Stack<Expression> thens = new Stack<Expression>();
+            foreach (var wt in node.WhenThenCases)
+            {
+                thens.Push(wt.Then);
+            }
+            thens.Push(node.ElseCase);
+
+            var th1 = thens.Pop();
+            var th0 = thens.Pop();
+            var when = whens.Pop();
+            var cond = Expression.Condition(when, th0, th1);
+
+            while (whens.Any())
+            {
+                when = whens.Pop();
+                var then = thens.Pop();
+                cond = Expression.Condition(when, then, cond);
+            }
+
+            var visitedConditional = VisitConditional(cond);
+            return visitedConditional;
+
+            /*
             // Each of the cases will be translated to blocks, which can hold their own
             // local variables and lexical return, just like the body of a Lambda. So,
             // we use a nested vistor here to create a nested block.
@@ -558,6 +650,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             // of the lambda we just created (which *is* an expression and can be
             // used everywhere).
             return Expression.Invoke(assign);
+            */
         }
 
 

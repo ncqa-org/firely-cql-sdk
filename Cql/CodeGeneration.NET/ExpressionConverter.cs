@@ -11,6 +11,7 @@ using Hl7.Cql.Compiler.Expressions;
 using Microsoft.CodeAnalysis.CSharp;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -616,7 +617,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                         var typeName = PrettyTypeName(strippedUnary.Type);
                         var code = strippedUnary.NodeType == ExpressionType.TypeAs ?
                             $"{leadingIndentString}{Parenthesize($"{operand} as {typeName}")}" :
-                            $"{leadingIndentString}{Parenthesize($"({typeName}){operand}")}";
+                            $"{leadingIndentString}{Parenthesize($"({typeName})({operand})")}";
                         return code;
                     }
                 default:
@@ -681,7 +682,14 @@ namespace Hl7.Cql.CodeGeneration.NET
                 var rightCode = ConvertExpression(indent, right, false);
                 if (right is ConstantExpression ce && ce.Value == null)
                     rightCode = "null";
-                var binaryString = $"{leadingIndentString}{leftCode} {@operator} {rightCode}";
+
+                if(rightCode == "Resource")
+                {
+#pragma warning disable CS0219 // Variable is assigned but its value is never used
+                    int a = 0;
+#pragma warning restore CS0219 // Variable is assigned but its value is never used
+                }
+                var binaryString = $"{leadingIndentString}({leftCode} {@operator} {rightCode})";
                 return binaryString;
             }
         }

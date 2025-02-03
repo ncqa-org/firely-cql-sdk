@@ -468,8 +468,8 @@ namespace Hl7.Cql.CodeGeneration.NET
             var visitedBody = Transform(overload.Body,
                 new RedundantCastsTransformer(),
                 new SimplifyExpressionsVisitor(),
-                new RenameVariablesVisitor(vng),
-                new LocalVariableDeduper()
+                new RenameVariablesVisitor(vng)
+                //new LocalVariableDeduper()
             );
 
             var expressionConverter = new ExpressionConverter(libraryName, ContextLibraries);
