@@ -12,6 +12,9 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 {
     internal class CachedBoolVisitor : ExpressionVisitor
     {
+
+        private static ConstructorInfo constructorInfo = typeof(CachedBool).GetConstructor(new[] { typeof(Func<bool?>) })!;
+
         protected override Expression VisitBlock(BlockExpression node)
         {
             Expression? result = null;
@@ -32,15 +35,23 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 Expression visitedExpression = curr;
                 if(curr is BinaryExpression binaryExpression)
                 {
-                    bool rightIsConstantExprssion = binaryExpression.Right is ConstantExpression;
+                    bool rightIsConstantExpression = binaryExpression.Right is ConstantExpression;
                     bool rightIsNullableBool = binaryExpression.Right.Type == typeof(bool?);// typeof(bool?).IsAssignableFrom(binaryExpression.Right.Type);
                     bool leftIsParameter = binaryExpression.Left.NodeType == ExpressionType.Parameter;
-                    if (binaryExpression.NodeType == ExpressionType.Assign && rightIsNullableBool && rightIsConstantExprssion == false && leftIsParameter)
+                    if (binaryExpression.NodeType == ExpressionType.Assign && rightIsNullableBool && rightIsConstantExpression == false && leftIsParameter)
                     {
                         // wrap right side in a cached bool
-                        ConstructorInfo constructorInfo = typeof(CachedBool).GetConstructor(new[] { typeof(Func<bool?>) })!;
 
-                        Expression func = Expression.Lambda<Func<bool?>>(Expression.Block(binaryExpression.Right));
+                        // TODO(agw): 
+                        // for the right expression, find any references to local ParameterExpression. 
+                        // if we are the only reference, we can move inside the cached bool function
+                        List<Expression> pulledOut = new();
+
+                        List<Expression> blockExpressions = new();
+                        blockExpressions.AddRange(pulledOut);
+                        blockExpressions.Add(binaryExpression.Right);
+
+                        Expression func = Expression.Lambda<Func<bool?>>(Expression.Block(blockExpressions));
                         NewExpression newCachedBool = Expression.New(constructorInfo, func);
 
                         int paramIdx = node.Variables.IndexOf((ParameterExpression)binaryExpression.Left);
