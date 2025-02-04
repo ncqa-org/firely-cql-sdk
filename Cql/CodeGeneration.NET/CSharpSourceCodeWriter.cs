@@ -469,7 +469,9 @@ namespace Hl7.Cql.CodeGeneration.NET
                 new RedundantCastsTransformer(),
                 new SimplifyExpressionsVisitor(),
                 new RenameVariablesVisitor(vng),
-                new LocalVariableDeduper()
+                new LocalVariableDeduper(), // TODO(agw): do this until no replacements are made
+                new LocalVariableDeduper(),
+                new CachedBoolVisitor()
             );
 
             var expressionConverter = new ExpressionConverter(libraryName, ContextLibraries);

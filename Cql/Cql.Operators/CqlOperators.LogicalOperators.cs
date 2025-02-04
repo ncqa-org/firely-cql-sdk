@@ -1,4 +1,5 @@
-﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+﻿#define PROFILE_SHORT_CIRCUIT
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 /* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
@@ -7,12 +8,19 @@
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
+using Hl7.Cql.Abstractions;
 using System;
+using System.ComponentModel.Design;
+using System.Threading;
 
 namespace Hl7.Cql.Runtime
 {
     internal partial class CqlOperators
     {
+#if PROFILE_SHORT_CIRCUIT
+        public static long OrShortCircuitCount = 0;
+        public static long AndShortCircuitCount = 0;
+#endif
         public bool? And(bool? left, bool? right)
         {
             if (left == false || right == false)
@@ -28,6 +36,31 @@ namespace Hl7.Cql.Runtime
             else if (left.Value == true && right.Value == true)
                 return true;
             else return null;
+        }
+
+        public bool? And(CachedBool left, CachedBool right)
+        {
+            bool? l = left.GetValue();
+            if (l == false)
+            {
+
+#if PROFILE_SHORT_CIRCUIT
+                Interlocked.Increment(ref AndShortCircuitCount);
+#endif
+                return false;
+            }
+            else
+            {
+                bool? r = right.GetValue();
+                if(r == false)
+                {
+                    return false;
+                }
+
+                if (l == true && r == true)
+                    return true;
+                return null;
+            }
         }
 
         public bool? And(bool? left, Lazy<bool?> right)
@@ -88,6 +121,31 @@ namespace Hl7.Cql.Runtime
             else if (left == null || right == null)
                 return null;
             else return false;
+        }
+        public bool? Or(CachedBool left, CachedBool right)
+        {
+            bool? l = left.GetValue();
+            if (l == true)
+            {
+
+#if PROFILE_SHORT_CIRCUIT
+                Interlocked.Increment(ref OrShortCircuitCount);
+#endif
+                return true;
+            }
+            else
+            {
+                bool? r = right.GetValue();
+                if (r == true)
+                    return true;
+
+                if (l == null || r == null)
+                {
+                    return null;
+                }
+            }
+
+            return false;
         }
         public bool? Or(Lazy<bool?> left, Lazy<bool?> right)
         {

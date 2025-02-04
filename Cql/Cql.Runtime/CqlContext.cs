@@ -9,6 +9,7 @@
 using Hl7.Cql.Operators;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Hl7.Cql.Runtime
 {
@@ -74,6 +75,24 @@ namespace Hl7.Cql.Runtime
         {
             ContextEvent?.Invoke(this, eventData);
             return this;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public long GetAndShortCircuitCount()
+        {
+            long result = Interlocked.Read(ref CqlOperators.AndShortCircuitCount);
+            return result;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public long GetOrShortCircuitCount()
+        {
+            long result = Interlocked.Read(ref CqlOperators.OrShortCircuitCount);
+            return result;
         }
 
         /// <summary>

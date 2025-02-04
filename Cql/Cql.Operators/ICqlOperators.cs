@@ -44,6 +44,7 @@ namespace Hl7.Cql.Operators
         bool? AllTrue(IEnumerable<bool?> argument);
         bool? AllTrue(IEnumerable<Lazy<bool?>> argument);
         bool? And(bool? left, bool? right);
+        bool? And(CachedBool left, CachedBool right);
         bool? And(Lazy<bool?> left, Lazy<bool?> right);
         bool? And(bool? left, Lazy<bool?> right);
         bool? And(Lazy<bool?> left, bool? right);
@@ -386,6 +387,7 @@ namespace Hl7.Cql.Operators
         object NotSupported();
         CqlDateTime Now();
         bool? Or(bool? left, bool? right);
+        bool? Or(CachedBool left, CachedBool right);
         bool? Or(Lazy<bool?> left, Lazy<bool?> right);
 
         bool? Overlaps(CqlInterval<CqlDate?> left, CqlInterval<CqlDate?> right, string? precision);
