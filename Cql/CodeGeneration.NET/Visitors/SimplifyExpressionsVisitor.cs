@@ -215,12 +215,29 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 return c.Update(c.When, thenVisitor.Visit(c.Then));
             }
 
+            // TODO(agw): pull out When Cases, make parameters with them, let the other visitors do the work 
+            //CaseWhenThenExpression.WhenThenCase[] newWhenExpressions = new CaseWhenThenExpression.WhenThenCase[node.WhenThenCases.Count()];
+            //var whenThenList = node.WhenThenCases.ToList();
+            //for(int i = 0; i < whenThenList.Count(); i += 1)
+            //{
+            //    var wt = whenThenList[i];
+            //    var thenVisitor = new SimplifyExpressionsVisitor();
+
+            //    var visitedWhen = Visit(wt.When);
+            //    var visitedThen = thenVisitor.Visit(wt.Then);
+
+            //    var newCWT = new CaseWhenThenExpression.WhenThenCase(visitedWhen, visitedThen);
+            //    newWhenExpressions[i] = newCWT;
+            //}
+
+
             var cases = node.WhenThenCases.Select(visitCase);
 
             // The final else case is treated just like the when/then
             var elseVisitor = new SimplifyExpressionsVisitor();
             var visitedElse = elseVisitor.Visit(node.ElseCase);
 
+            //var newCTW  = node.Update(newWhenExpressions, visitedElse);
             var newCTW = node.Update(cases.ToList().AsReadOnly(), visitedElse);
 
             // To make sure the if block in C# (which is NOT an expression) can

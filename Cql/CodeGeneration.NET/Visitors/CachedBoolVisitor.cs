@@ -33,7 +33,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                 if(curr is BinaryExpression binaryExpression)
                 {
                     bool rightIsConstantExprssion = binaryExpression.Right is ConstantExpression;
-                    bool rightIsNullableBool = typeof(bool?).IsAssignableFrom(binaryExpression.Right.Type);
+                    bool rightIsNullableBool = binaryExpression.Right.Type == typeof(bool?);// typeof(bool?).IsAssignableFrom(binaryExpression.Right.Type);
                     bool leftIsParameter = binaryExpression.Left.NodeType == ExpressionType.Parameter;
                     if (binaryExpression.NodeType == ExpressionType.Assign && rightIsNullableBool && rightIsConstantExprssion == false && leftIsParameter)
                     {
@@ -50,6 +50,21 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                         Expression newResult = Expression.Assign(newParam, newCachedBool);
                         visitedExpression = newResult;
                     }
+                    else if(binaryExpression.NodeType == ExpressionType.Assign && binaryExpression.Right is LambdaExpression lambdaExpression)
+                    {
+                        var lambdaBody = Visit(lambdaExpression.Body);
+                        var newLambda = Expression.Lambda(lambdaBody, lambdaExpression.Parameters);
+
+                        visitedExpression = Expression.Assign(binaryExpression.Left, newLambda);
+                    }
+                    else
+                    {
+                        visitedExpression = base.Visit(node.Expressions[i]);
+                    }
+                }
+                else
+                {
+                    visitedExpression = base.Visit(node.Expressions[i]);
                 }
 
                 resultExpressions[i] = visitedExpression;
