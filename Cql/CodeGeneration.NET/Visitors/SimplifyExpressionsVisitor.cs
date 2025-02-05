@@ -6,6 +6,7 @@
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
+using Hl7.Cql.Abstractions;
 using Hl7.Cql.Compiler;
 using Hl7.Cql.Compiler.Expressions;
 using System.Collections.Generic;
@@ -206,39 +207,43 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
         /// </summary>
         protected Expression VisitCaseWhenThenExpression(CaseWhenThenExpression node)
         {
-            // Each of the cases will be translated to blocks, which can hold their own
-            // local variables and lexical return, just like the body of a Lambda. So,
-            // we use a nested vistor here to create a nested block.
-            CaseWhenThenExpression.WhenThenCase visitCase(CaseWhenThenExpression.WhenThenCase c)
+            // NOTE(agw): pull out when cases, make parameters with them, let the other visitors do the work or de-duping and caching
+            CaseWhenThenExpression.WhenThenCase[] newWhenExpressions = new CaseWhenThenExpression.WhenThenCase[node.WhenThenCases.Count()];
+
+            var whenThenList = node.WhenThenCases.ToList();
+            for (int i = 0; i < whenThenList.Count(); i += 1)
             {
+                var wt = whenThenList[i];
                 var thenVisitor = new SimplifyExpressionsVisitor();
-                return c.Update(c.When, thenVisitor.Visit(c.Then));
+
+                var visitedWhen = Visit(wt.When);
+                var visitedThen = thenVisitor.Visit(wt.Then);
+
+                //NOTE(agw): This may seem erroneous; however, we need to add another conversion
+                // to handle CachedBool. Coalescing directly with (cachedBoolVariable ?? false) breaks, so 
+                // we want to do: ((bool?)cachedBoolVariable ?? false)
+                bool isCoalescedCachedBool = visitedWhen is BinaryExpression be &&
+                    be.NodeType == ExpressionType.Coalesce &&
+                    be.Left.Type == typeof(bool?);
+
+                if (isCoalescedCachedBool)
+                {
+                    BinaryExpression whenAsBinary = (BinaryExpression)visitedWhen;
+                    UnaryExpression convertLeft = Expression.Convert(whenAsBinary.Left, typeof(bool?));
+                    BinaryExpression newVisited = Expression.Coalesce(convertLeft, whenAsBinary.Right);
+
+                    visitedWhen = newVisited;
+                }
+
+                var newWhenThenCase = new CaseWhenThenExpression.WhenThenCase(visitedWhen, visitedThen);
+                newWhenExpressions[i] = newWhenThenCase;
             }
-
-            // TODO(agw): pull out When Cases, make parameters with them, let the other visitors do the work 
-            //CaseWhenThenExpression.WhenThenCase[] newWhenExpressions = new CaseWhenThenExpression.WhenThenCase[node.WhenThenCases.Count()];
-            //var whenThenList = node.WhenThenCases.ToList();
-            //for(int i = 0; i < whenThenList.Count(); i += 1)
-            //{
-            //    var wt = whenThenList[i];
-            //    var thenVisitor = new SimplifyExpressionsVisitor();
-
-            //    var visitedWhen = Visit(wt.When);
-            //    var visitedThen = thenVisitor.Visit(wt.Then);
-
-            //    var newCWT = new CaseWhenThenExpression.WhenThenCase(visitedWhen, visitedThen);
-            //    newWhenExpressions[i] = newCWT;
-            //}
-
-
-            var cases = node.WhenThenCases.Select(visitCase);
 
             // The final else case is treated just like the when/then
             var elseVisitor = new SimplifyExpressionsVisitor();
             var visitedElse = elseVisitor.Visit(node.ElseCase);
 
-            //var newCTW  = node.Update(newWhenExpressions, visitedElse);
-            var newCTW = node.Update(cases.ToList().AsReadOnly(), visitedElse);
+            var newCTW = node.Update(newWhenExpressions, visitedElse);
 
             // To make sure the if block in C# (which is NOT an expression) can
             // be used everywhere, we place the block inside its own lambda.

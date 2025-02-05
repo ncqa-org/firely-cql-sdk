@@ -33,12 +33,12 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             {
                 Expression curr = node.Expressions[i];
                 Expression visitedExpression = curr;
-                if(curr is BinaryExpression binaryExpression)
+                if(curr is BinaryExpression currBe)
                 {
-                    bool rightIsConstantExpression = binaryExpression.Right is ConstantExpression;
-                    bool rightIsNullableBool = binaryExpression.Right.Type == typeof(bool?);// typeof(bool?).IsAssignableFrom(binaryExpression.Right.Type);
-                    bool leftIsParameter = binaryExpression.Left.NodeType == ExpressionType.Parameter;
-                    if (binaryExpression.NodeType == ExpressionType.Assign && rightIsNullableBool && rightIsConstantExpression == false && leftIsParameter)
+                    bool rightIsConstantExpression = currBe.Right is ConstantExpression;
+                    bool rightIsNullableBool = currBe.Right.Type == typeof(bool?);
+                    bool leftIsParameter = currBe.Left.NodeType == ExpressionType.Parameter;
+                    if (currBe.NodeType == ExpressionType.Assign && rightIsNullableBool && rightIsConstantExpression == false && leftIsParameter)
                     {
                         // wrap right side in a cached bool
 
@@ -48,25 +48,27 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
                         List<Expression> pulledOut = new();
 
                         List<Expression> blockExpressions = new();
-                        blockExpressions.AddRange(pulledOut);
-                        blockExpressions.Add(binaryExpression.Right);
+                        ParameterExpression blockResult = Expression.Parameter(typeof(bool?));
+                        //blockExpressions.AddRange(pulledOut);
+                        blockExpressions.Add(Expression.Assign(blockResult, currBe.Right));
+                        blockExpressions.Add(blockResult);
 
                         Expression func = Expression.Lambda<Func<bool?>>(Expression.Block(blockExpressions));
                         NewExpression newCachedBool = Expression.New(constructorInfo, func);
 
-                        int paramIdx = node.Variables.IndexOf((ParameterExpression)binaryExpression.Left);
-                        ParameterExpression newParam = Expression.Parameter(typeof(CachedBool), ((ParameterExpression)binaryExpression.Left).Name);
+                        int paramIdx = node.Variables.IndexOf((ParameterExpression)currBe.Left);
+                        ParameterExpression newParam = Expression.Parameter(typeof(CachedBool), ((ParameterExpression)currBe.Left).Name);
                         parameterExpressions[paramIdx] = newParam;
 
                         Expression newResult = Expression.Assign(newParam, newCachedBool);
                         visitedExpression = newResult;
                     }
-                    else if(binaryExpression.NodeType == ExpressionType.Assign && binaryExpression.Right is LambdaExpression lambdaExpression)
+                    else if(currBe.NodeType == ExpressionType.Assign && currBe.Right is LambdaExpression lambdaExpression)
                     {
                         var lambdaBody = Visit(lambdaExpression.Body);
                         var newLambda = Expression.Lambda(lambdaBody, lambdaExpression.Parameters);
 
-                        visitedExpression = Expression.Assign(binaryExpression.Left, newLambda);
+                        visitedExpression = Expression.Assign(currBe.Left, newLambda);
                     }
                     else
                     {

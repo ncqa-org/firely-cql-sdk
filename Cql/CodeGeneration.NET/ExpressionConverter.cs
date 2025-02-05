@@ -28,6 +28,8 @@ namespace Hl7.Cql.CodeGeneration.NET
             ContextLibraries = contextLibraries;
         }
 
+        private int lambdaArgumentIndent = 0;
+
         public string ConvertExpression(int indent, Expression expression, bool leadingIndent = true)
         {
             var leadingIndentString = leadingIndent ? IndentString(indent) : string.Empty;
@@ -35,7 +37,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             return expression switch
             {
                 ConstantExpression constant => convertConstantExpression(constant.Type, constant.Value, leadingIndentString),
-                NewExpression @new => convertNewExpression(leadingIndentString, @new),
+                NewExpression @new => convertNewExpression(indent, leadingIndentString, @new),
                 MethodCallExpression call => convertMethodCallExpression(indent, leadingIndentString, call),
                 LambdaExpression lambda => convertLambdaExpression(indent, leadingIndentString, lambda),
                 BinaryExpression binary => convertBinaryExpression(indent, leadingIndentString, binary),
@@ -124,6 +126,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             sb.AppendLine(indent, "{");
 
             var lastExpression = block.Expressions.LastOrDefault();
+
             var isFirstStatement = true;
 
             foreach (var childStatement in block.Expressions)
@@ -133,7 +136,7 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                     if (childStatement is not CaseWhenThenExpression)
                     {
-                        if (!isFirstStatement) sb.AppendLine();
+                        if (!isFirstStatement && lambdaArgumentIndent < 0) sb.AppendLine();
                         sb.Append(indent + 1, "return ");
                     }
                     sb.Append(ConvertExpression(indent + 1, childStatement, false));
@@ -418,9 +421,15 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
         }
 
-        private string convertNewExpression(string leadingIndentString, NewExpression @new)
+        private string convertNewExpression(int indent, string leadingIndentString, NewExpression @new)
         {
-            var arguments = @new.Arguments.Select(a => ConvertExpression(0, a));
+            var arguments = @new.Arguments.Select(a =>
+            {
+                lambdaArgumentIndent = indent + 1;
+                string result = ConvertExpression(0, a);
+                lambdaArgumentIndent = -1;
+                return result;
+            });
             var argString = string.Join(", ", arguments);
 
             var newSb = new StringBuilder();
@@ -452,6 +461,8 @@ namespace Hl7.Cql.CodeGeneration.NET
             var lambdaParameters = $"({string.Join(", ", parameters)})";
             lambdaSb.Append(lambdaParameters);
 
+            int lambdaIndent = Math.Max(indent, lambdaArgumentIndent);
+
             if (lambda.Body is BlockExpression)
             {
                 if (!functionMode)
@@ -459,13 +470,13 @@ namespace Hl7.Cql.CodeGeneration.NET
                 else
                     lambdaSb.AppendLine();
 
-                var lambdaBody = ConvertExpression(indent, lambda.Body);
+                var lambdaBody = ConvertExpression(lambdaIndent, lambda.Body);
                 lambdaSb.Append(lambdaBody);
             }
             else
             {
                 lambdaSb.AppendLine(" => ");
-                var lambdaBody = ConvertExpression(indent + 1, lambda.Body);
+                var lambdaBody = ConvertExpression(lambdaIndent + 1, lambda.Body);
                 lambdaSb.Append(lambdaBody);
             }
 
