@@ -172,6 +172,7 @@ namespace Hl7.Cql.ValueSets
         /// <returns></returns>
         public static ulong GetKey(string valueSetUri, string code, string systemUri)
         {
+            // NOTE(agw): When writing this, the max code length in all HEDIS value sets was 20
             Span<byte> bytes = stackalloc byte[32];
             int systemHash = HashSystem(systemUri);
 
@@ -192,6 +193,7 @@ namespace Hl7.Cql.ValueSets
                 valuesetHash = valuesetHash | ((ulong)minus1) << 0;
             }
 
+            // copy / compress various hashes into one
             Span<int> systemDest = MemoryMarshal.Cast<byte, int>(bytes.Slice(20));
             Span<ulong> valuesetDest = MemoryMarshal.Cast<byte, ulong>(bytes.Slice(24));
             systemDest[0] = systemHash;
@@ -202,7 +204,7 @@ namespace Hl7.Cql.ValueSets
                 bytes[i] = (byte)code[i];
             }
 
-            // do one pass of xxHash64
+            // ~ do one pass of xxHash64
             ulong seed = 0;
 
             Span<ulong> asUlong = MemoryMarshal.Cast<byte, ulong>(bytes);
