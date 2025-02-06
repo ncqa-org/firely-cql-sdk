@@ -10,6 +10,8 @@
 using Hl7.Cql.Primitives;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 
 namespace Hl7.Cql.ValueSets
@@ -159,46 +161,6 @@ namespace Hl7.Cql.ValueSets
             return result;
         }
 
-        // NOTE(agw): this is NOT meant for general use. Only works in the context of 32 byte input
-        private static unsafe ulong xxHash64Unsafe(Span<byte> bytes, ulong seed)
-        {
-            ulong hash = 0;
-
-            fixed(byte* ptr = bytes)
-            {
-                Span<ulong> data = stackalloc ulong[4];
-                Span<ulong> state = stackalloc ulong[4];
-
-                state[0] = seed + PRIME64_1 + PRIME64_2;
-                state[1] = seed + PRIME64_2;
-                state[2] = seed;
-                state[3] = seed - PRIME64_1;
-
-                ulong* ulongPtr = (ulong*)ptr;
-                data[0] = *(ulongPtr + 0);
-                data[1] = *(ulongPtr + 1);
-                data[2] = *(ulongPtr + 2);
-                data[3] = *(ulongPtr + 3);
-
-                state[0] = xxHash64_ProcessSingle(state[0], data[0]);
-                state[1] = xxHash64_ProcessSingle(state[1], data[1]);
-                state[2] = xxHash64_ProcessSingle(state[2], data[2]);
-                state[3] = xxHash64_ProcessSingle(state[3], data[3]);
-
-                hash = xxHash64_RotateLeft(state[0], 1) +
-                        xxHash64_RotateLeft(state[1], 7) +
-                        xxHash64_RotateLeft(state[2], 12) +
-                        xxHash64_RotateLeft(state[3], 18);
-
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[0])) * PRIME64_1 + PRIME64_3;
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[1])) * PRIME64_1 + PRIME64_3;
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[2])) * PRIME64_1 + PRIME64_3;
-                hash = (hash ^ xxHash64_ProcessSingle(0, state[3])) * PRIME64_1 + PRIME64_3;
-            }
-
-            return hash;
-        }
-
         /// <summary>
         /// Given the assumption of HEDIS, we can assume certain things about the inputs.
         /// There is a much faster hash function for systems (almost can have unique id based on length).
@@ -208,42 +170,82 @@ namespace Hl7.Cql.ValueSets
         /// <param name="code"></param>
         /// <param name="systemUri"></param>
         /// <returns></returns>
-        public unsafe static ulong GetKey(string valueSetUri, string code, string systemUri)
+        public static ulong GetKey(string valueSetUri, string code, string systemUri)
         {
             Span<byte> bytes = stackalloc byte[32];
             int systemHash = HashSystem(systemUri);
 
             // get valueset hash
-            long valuesetHash = 0;
+            ulong valuesetHash = 0;
             {
-                fixed (char* p = valueSetUri)
-                {
-                    char* last4 = p + valueSetUri.Length - 4;
-                    valuesetHash = *(long*)last4;
-                }
+                // get last 4 chars as unique hash
+                ReadOnlySpan<char> last4 = valueSetUri.AsSpan();
+                ref char last4Ref = ref MemoryMarshal.GetReference<char>(last4);
+                ref char minus4 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 4);
+                ref char minus3 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 3);
+                ref char minus2 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 2);
+                ref char minus1 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 1);
+
+                valuesetHash = valuesetHash | ((ulong)minus4) << 48;
+                valuesetHash = valuesetHash | ((ulong)minus3) << 32;
+                valuesetHash = valuesetHash | ((ulong)minus2) << 16;
+                valuesetHash = valuesetHash | ((ulong)minus1) << 0;
             }
 
-            // copy code over, add in  
+            Span<int> systemDest = MemoryMarshal.Cast<byte, int>(bytes.Slice(20));
+            Span<ulong> valuesetDest = MemoryMarshal.Cast<byte, ulong>(bytes.Slice(24));
+            systemDest[0] = systemHash;
+            valuesetDest[0] = valuesetHash;
+
             for(int i = 0; i < code.Length; i++)
             {
                 bytes[i] = (byte)code[i];
             }
 
-            // compress into 32 bytes
-            fixed(byte* bytePtr = bytes)
-            {
-                int* systemPtr = (int*)(bytePtr + 20);
-                *systemPtr = systemHash;
-
-                long* valuesetHashPtr = (long*)(bytePtr + 24);
-                *valuesetHashPtr = valuesetHash;
-            }
-
             // do one pass of xxHash64
-            ulong hash = xxHash64Unsafe(bytes, 0);
+            ulong seed = 0;
+
+            Span<ulong> asUlong = MemoryMarshal.Cast<byte, ulong>(bytes);
+            ref ulong first = ref MemoryMarshal.GetReference<ulong>(asUlong);
+
+            Span<ulong> data = stackalloc ulong[4];
+            Span<ulong> state = stackalloc ulong[4];
+
+            state[0] = seed + PRIME64_1 + PRIME64_2;
+            state[1] = seed + PRIME64_2;
+            state[2] = seed;
+            state[3] = seed - PRIME64_1;
+
+            data[0] = Unsafe.Add(ref first, 0);
+            data[1] = Unsafe.Add(ref first, 1);
+            data[2] = Unsafe.Add(ref first, 2);
+            data[3] = Unsafe.Add(ref first, 3);
+
+            state[0] = xxHash64_ProcessSingle(state[0], data[0]);
+            state[1] = xxHash64_ProcessSingle(state[1], data[1]);
+            state[2] = xxHash64_ProcessSingle(state[2], data[2]);
+            state[3] = xxHash64_ProcessSingle(state[3], data[3]);
+
+            ulong hash = xxHash64_RotateLeft(state[0], 1) +
+                        xxHash64_RotateLeft(state[1], 7) +
+                        xxHash64_RotateLeft(state[2], 12) +
+                        xxHash64_RotateLeft(state[3], 18);
+
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[0])) * PRIME64_1 + PRIME64_3;
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[1])) * PRIME64_1 + PRIME64_3;
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[2])) * PRIME64_1 + PRIME64_3;
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[3])) * PRIME64_1 + PRIME64_3;
+
             return hash;
         }
 #else
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="valueSetUri"></param>
+        /// <param name="code"></param>
+        /// <param name="systemUri"></param>
+        /// <returns></returns>
         public static string GetKey(string valueSetUri, string? code, string? systemUri) =>
             $"{valueSetUri.ToLowerInvariant()}\0{systemUri?.ToLowerInvariant() ?? ""}\0{code?.ToLowerInvariant() ?? ""}";
 #endif
