@@ -12,18 +12,23 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-
 namespace Hl7.Cql.ValueSets
 {
 
     /// <summary>
     /// Uses hash sets to identify code membership within value sets.
     /// </summary>
-    public class HashValueSetDictionary : IValueSetDictionary
+    public class HEDISValueSetDictionary : IValueSetDictionary
     {
         private const string NullCodeSystem = "\0";
         private readonly CqlCodeHasher _codeHasher = new();
 
+        private static int[] useOffsetArray = new int[86];
+        static HEDISValueSetDictionary()
+        {
+            useOffsetArray[27] = 1;
+            useOffsetArray[33] = 1;
+        }
 
         /// <summary>
         /// Adds the code to the given value set by its canonical URI.
@@ -123,17 +128,115 @@ namespace Hl7.Cql.ValueSets
         /// </summary>
         public int Count => _codesByHash.Count / 2;
 
+        private static int HashSystem(string systemString)
+        {
+            //NOTE(agw): each system is _almost_ a unique length.
+            // of the ones that are not a unique length, you can offset by one based on the final
+            // character. useOffsetArray determines if we need to do this.
+            int useOffset = useOffsetArray[systemString.Length];
+            int offset = (systemString[systemString.Length - 1] > 'm' ? 1 : 0);
+            int systemHash = systemString.Length + offset * useOffset;
+            return systemHash;
+        }
+
+        static readonly ulong PRIME64_1 = 0x9E3779B185EBCA87;
+        static readonly ulong PRIME64_2 = 0xC2B2AE3D27D4EB4F;
+        static readonly ulong PRIME64_3 = 0x85EBCA77C2B2AE63;
+
+        private static ulong xxHash64_RotateLeft(ulong x, byte bits)
+        {
+            ulong result = (x << bits) | (x >> (64 - bits));
+            return result;
+        }
+        private static ulong xxHash64_ProcessSingle(ulong previous, ulong input)
+        {
+            ulong result = xxHash64_RotateLeft(previous + input * PRIME64_2, 31) * PRIME64_1;
+            return result;
+        }
+
         /// <summary>
-        /// 
+        /// Given the assumption of HEDIS, we can assume certain things about the inputs.
+        /// There is a much faster hash function for systems (almost can have unique id based on length).
+        /// This hash also reduces string allocations.
         /// </summary>
         /// <param name="valueSetUri"></param>
         /// <param name="code"></param>
         /// <param name="systemUri"></param>
         /// <returns></returns>
-        public static string GetKey(string valueSetUri, string? code, string? systemUri) =>
-            $"{valueSetUri.ToLowerInvariant()}\0{systemUri?.ToLowerInvariant() ?? ""}\0{code?.ToLowerInvariant() ?? ""}";
+        public static ulong GetKey(string valueSetUri, string code, string systemUri)
+        {
+            // NOTE(agw): When writing this, the max code length in all HEDIS value sets was 20
+            Span<byte> bytes = stackalloc byte[32];
+            int systemHash = HashSystem(systemUri);
 
-        private readonly Dictionary<string, CqlCode> _codesByHash = new();
+            // get valueset hash
+            ulong valuesetHash = 0;
+            {
+                // get last 4 chars as unique hash
+                ReadOnlySpan<char> last4 = valueSetUri.AsSpan();
+                ref char last4Ref = ref MemoryMarshal.GetReference<char>(last4);
+                ref char minus4 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 4);
+                ref char minus3 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 3);
+                ref char minus2 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 2);
+                ref char minus1 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 1);
+
+                valuesetHash = valuesetHash | ((ulong)minus4) << 48;
+                valuesetHash = valuesetHash | ((ulong)minus3) << 32;
+                valuesetHash = valuesetHash | ((ulong)minus2) << 16;
+                valuesetHash = valuesetHash | ((ulong)minus1) << 0;
+            }
+
+            // copy / compress various hashes into one
+            Span<int> systemDest = MemoryMarshal.Cast<byte, int>(bytes.Slice(20));
+            Span<ulong> valuesetDest = MemoryMarshal.Cast<byte, ulong>(bytes.Slice(24));
+            systemDest[0] = systemHash;
+            valuesetDest[0] = valuesetHash;
+
+            int codeLength = Math.Min(code.Length, 20);
+            for(int i = 0; i < codeLength; i++)
+            {
+                bytes[i] = (byte)code[i];
+            }
+
+            // ~ do one pass of xxHash64
+            ulong seed = 0;
+
+            Span<ulong> asUlong = MemoryMarshal.Cast<byte, ulong>(bytes);
+            ref ulong first = ref MemoryMarshal.GetReference<ulong>(asUlong);
+
+            Span<ulong> data = stackalloc ulong[4];
+            Span<ulong> state = stackalloc ulong[4];
+
+            state[0] = seed + PRIME64_1 + PRIME64_2;
+            state[1] = seed + PRIME64_2;
+            state[2] = seed;
+            state[3] = seed - PRIME64_1;
+
+            data[0] = Unsafe.Add(ref first, 0);
+            data[1] = Unsafe.Add(ref first, 1);
+            data[2] = Unsafe.Add(ref first, 2);
+            data[3] = Unsafe.Add(ref first, 3);
+
+            state[0] = xxHash64_ProcessSingle(state[0], data[0]);
+            state[1] = xxHash64_ProcessSingle(state[1], data[1]);
+            state[2] = xxHash64_ProcessSingle(state[2], data[2]);
+            state[3] = xxHash64_ProcessSingle(state[3], data[3]);
+
+            ulong hash = xxHash64_RotateLeft(state[0], 1) +
+                        xxHash64_RotateLeft(state[1], 7) +
+                        xxHash64_RotateLeft(state[2], 12) +
+                        xxHash64_RotateLeft(state[3], 18);
+
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[0])) * PRIME64_1 + PRIME64_3;
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[1])) * PRIME64_1 + PRIME64_3;
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[2])) * PRIME64_1 + PRIME64_3;
+            hash = (hash ^ xxHash64_ProcessSingle(0, state[3])) * PRIME64_1 + PRIME64_3;
+
+            return hash;
+        }
+
+        private readonly Dictionary<ulong, CqlCode> _codesByHash = new();
+
         private readonly Dictionary<string, HashSet<CqlCode>> _codesInValueSet =
             new(StringComparer.OrdinalIgnoreCase);
 
