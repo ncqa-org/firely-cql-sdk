@@ -25,6 +25,7 @@ namespace Hl7.Cql.Operators
         IEnumerable<T> RetrieveByCodes<T>(IEnumerable<CqlCode?>? codes = null, PropertyInfo? codeProperty = null) where T : class;
 
         #region Operators
+            
         CqlQuantity? Abs(CqlQuantity? argument);
         decimal? Abs(decimal? argument);
         int? Abs(int? argument);
