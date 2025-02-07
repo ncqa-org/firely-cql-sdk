@@ -9,10 +9,6 @@ using ListSortDirection = System.ComponentModel.ListSortDirection;
 
 namespace Hl7.Cql.Operators
 {
-    public class AlexTest
-    {
-        public long GetKeyCount;
-    }
     /// <summary>
     /// Defines the operators in the CQL specification.
     /// </summary>
