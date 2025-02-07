@@ -12,7 +12,6 @@ using System.Collections.Generic;
 
 namespace Hl7.Cql.ValueSets
 {
-
     /// <summary>
     /// Uses hash sets to identify code membership within value sets.
     /// </summary>
