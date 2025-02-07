@@ -18,7 +18,7 @@ namespace Hl7.Cql.ValueSets
     /// <summary>
     /// Uses hash sets to identify code membership within value sets.
     /// </summary>
-    public class HEDISValueSetDictionary : IValueSetDictionary
+    internal class HEDISValueSetDictionary : IValueSetDictionary
     {
         private const string NullCodeSystem = "\0";
         private readonly CqlCodeHasher _codeHasher = new();

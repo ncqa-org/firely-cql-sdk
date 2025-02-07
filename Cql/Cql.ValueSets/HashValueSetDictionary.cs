@@ -10,7 +10,6 @@ using Hl7.Cql.Primitives;
 using System;
 using System.Collections.Generic;
 
-
 namespace Hl7.Cql.ValueSets
 {
 
@@ -21,7 +20,6 @@ namespace Hl7.Cql.ValueSets
     {
         private const string NullCodeSystem = "\0";
         private readonly CqlCodeHasher _codeHasher = new();
-
 
         /// <summary>
         /// Adds the code to the given value set by its canonical URI.
@@ -82,10 +80,8 @@ namespace Hl7.Cql.ValueSets
         /// <param name="valueSetUri">The value set's canonical URI.</param>
         /// <param name="code">The code to check.</param>
         /// <returns><see langword="true"/> if the given code is present in the given value set.</returns>
-
         public bool IsCodeInValueSet(string valueSetUri, string code) =>
             _codesByHash.ContainsKey(GetKey(valueSetUri, code, NullCodeSystem));
-
 
         /// <summary>
         /// Returns <see langword="true"/> if the given code is present in the given value set.
@@ -120,7 +116,7 @@ namespace Hl7.Cql.ValueSets
         /// </summary>
         public int Count => _codesByHash.Count / 2;
 
-        private static string GetKey(string valueSetUri, string? code, string? systemUri) =>
+        private string GetKey(string valueSetUri, string? code, string? systemUri) =>
             $"{valueSetUri.ToLowerInvariant()}\0{systemUri?.ToLowerInvariant() ?? ""}\0{code?.ToLowerInvariant() ?? ""}";
 
         private readonly Dictionary<string, CqlCode> _codesByHash = new();
