@@ -9,8 +9,6 @@
 using Hl7.Cql.Primitives;
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 
 namespace Hl7.Cql.ValueSets
@@ -19,7 +17,7 @@ namespace Hl7.Cql.ValueSets
     /// <summary>
     /// Uses hash sets to identify code membership within value sets.
     /// </summary>
-    public class HashValueSetDictionary : IValueSetDictionary
+    internal class HashValueSetDictionary : IValueSetDictionary
     {
         private const string NullCodeSystem = "\0";
         private readonly CqlCodeHasher _codeHasher = new();
@@ -43,10 +41,9 @@ namespace Hl7.Cql.ValueSets
                 throw new ArgumentNullException(nameof(code));
             }
 
-            _codesByHash.Add(GetKey(valueSetUri, code.code ?? "", code.system ?? NullCodeSystem), code);
-            var nullKey = GetKey(valueSetUri, code.code ?? "", NullCodeSystem);
+            _codesByHash.Add(GetKey(valueSetUri, code.code, code.system), code);
+            var nullKey = GetKey(valueSetUri, code.code, NullCodeSystem);
             _codesByHash.TryAdd(nullKey, code);
-
             if (!_codesInValueSet.TryGetValue(valueSetUri, out var codes))
             {
                 codes = new HashSet<CqlCode>(_codeHasher) { code };
@@ -63,8 +60,8 @@ namespace Hl7.Cql.ValueSets
         /// <param name="code">The code to add.</param>
         public void Set(string valueSetUri, CqlCode code)
         {
-            _codesByHash[GetKey(valueSetUri, code.code ?? "", code.system ?? "")] = code;
-            _codesByHash[GetKey(valueSetUri, code.code ?? "", NullCodeSystem)] = code;
+            _codesByHash[GetKey(valueSetUri, code.code, code.system)] = code;
+            _codesByHash[GetKey(valueSetUri, code.code, NullCodeSystem)] = code;
             if (!_codesInValueSet.TryGetValue(valueSetUri, out var codes))
             {
                 codes = new HashSet<CqlCode>(_codeHasher)
@@ -123,14 +120,7 @@ namespace Hl7.Cql.ValueSets
         /// </summary>
         public int Count => _codesByHash.Count / 2;
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="valueSetUri"></param>
-        /// <param name="code"></param>
-        /// <param name="systemUri"></param>
-        /// <returns></returns>
-        public static string GetKey(string valueSetUri, string? code, string? systemUri) =>
+        private static string GetKey(string valueSetUri, string? code, string? systemUri) =>
             $"{valueSetUri.ToLowerInvariant()}\0{systemUri?.ToLowerInvariant() ?? ""}\0{code?.ToLowerInvariant() ?? ""}";
 
         private readonly Dictionary<string, CqlCode> _codesByHash = new();

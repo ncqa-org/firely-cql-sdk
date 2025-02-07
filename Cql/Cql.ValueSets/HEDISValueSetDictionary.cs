@@ -154,16 +154,7 @@ namespace Hl7.Cql.ValueSets
             return result;
         }
 
-        /// <summary>
-        /// Given the assumption of HEDIS, we can assume certain things about the inputs.
-        /// There is a much faster hash function for systems (almost can have unique id based on length).
-        /// This hash also reduces string allocations.
-        /// </summary>
-        /// <param name="valueSetUri"></param>
-        /// <param name="code"></param>
-        /// <param name="systemUri"></param>
-        /// <returns></returns>
-        public static ulong GetKey(string valueSetUri, string code, string systemUri)
+        private static ulong GetKey(string valueSetUri, string code, string systemUri)
         {
             // NOTE(agw): When writing this, the max code length in all HEDIS value sets was 20
             Span<byte> bytes = stackalloc byte[32];
