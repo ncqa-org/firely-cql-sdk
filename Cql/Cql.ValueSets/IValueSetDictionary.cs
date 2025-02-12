@@ -39,6 +39,12 @@ namespace Hl7.Cql.ValueSets
         /// <param name="codes">The <see langword="out"/> parameter for the value set's codes, or <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if the given value set is defined; otherwise, <see langword="false"/>.</returns>
         bool TryGetCodesInValueSet(string valueSetUri, out IReadOnlyCollection<CqlCode>? codes);
+        /// <summary>
+        /// Adds a code to the value set.
+        /// </summary>
+        /// <param name="valueSetUri"></param>
+        /// <param name="code"></param>
+        void Add(string valueSetUri, CqlCode code);
     }
 
 }
