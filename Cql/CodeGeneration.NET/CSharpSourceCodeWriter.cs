@@ -96,8 +96,6 @@ namespace Hl7.Cql.CodeGeneration.NET
 
         internal IList<string> ContextLibraries { get; set; } = new List<string>();
 
-        internal Elm.Library? CacheLibrary { get; set; }
-
         /// <summary>
         /// Writes C# source code from inputs.
         /// </summary>
@@ -152,7 +150,6 @@ namespace Hl7.Cql.CodeGeneration.NET
                     int indentLevel = 0;
                     WriteUsings(writer);
 
-                    var usesCache = false;
                     var cacheLibraryName = ""; //cacheLibrary?.NodeId.Replace("-", "_").Replace(".", "_");
 
                     var hasContext = false;
@@ -184,21 +181,12 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                                 if (dependentLibrary.StartsWith("Cache"))
                                 {
-                                    if (CacheLibrary == null)
-                                        CacheLibrary = elmLibrary;
-
-                                    usesCache = true;
                                     cacheLibraryName = dependentLibrary.Replace("-", "_").Replace(".", "_");
                                 }
                             }
                         }
 
                         hasContext = ((Elm.Library)nodeLibrary)?.contexts != null || requiredUsesContext;
-                    }
-
-                    if (usesCache && hasContext)
-                    {
-                        writer.WriteLine($"using cache = {cacheLibraryName};");
                     }
 
                     // Namespace
@@ -278,16 +266,32 @@ namespace Hl7.Cql.CodeGeneration.NET
                     writer.WriteLine(indentLevel, $"{AccessModifierString(ContextAccessModifier)} CqlContext context;");
                     writer.WriteLine();
 
+                    // Write constructor
+                    if (!string.IsNullOrEmpty(cacheLibraryName))
+                    {
+                        writer.WriteLine(indentLevel, $"{AccessModifierString(ContextAccessModifier)} {cacheLibraryName} cache;");
+                        writer.WriteLine();
+                    }
+
                     writeCachedValues(definitions, libraryName, writer, indentLevel);
 
-                    // Write constructor
-                    writer.WriteLine(indentLevel, $"public {className}(CqlContext context)");
+                    if (!string.IsNullOrEmpty(cacheLibraryName))
+                        writer.WriteLine(indentLevel, $"public {className}(CqlContext context, {cacheLibraryName} cache)");
+                    else
+                        writer.WriteLine(indentLevel, $"public {className}(CqlContext context)");
+
                     writer.WriteLine(indentLevel, "{");
                     {
                         indentLevel += 1;
 
                         writer.WriteLine(indentLevel, "this.context = context ?? throw new ArgumentNullException(\"context\");");
                         writer.WriteLine();
+
+                        if (!string.IsNullOrEmpty(cacheLibraryName))
+                        {
+                            writer.WriteLine(indentLevel, "this.cache = cache ?? throw new ArgumentNullException(\"cache\");");
+                            writer.WriteLine();
+                        }
 
                         writeDependencies(dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel);
                         writer.WriteLine();
@@ -339,9 +343,9 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
         }
 
-        private void writeDependencies(DirectedGraph dependencyGraph, 
-            Func<string?, string?> libraryNameToClassName, 
-            string libraryName, StreamWriter writer, 
+        private void writeDependencies(DirectedGraph dependencyGraph,
+            Func<string?, string?> libraryNameToClassName,
+            string libraryName, StreamWriter writer,
             int indentLevel)
         {
             var node = dependencyGraph.Nodes[libraryName];
@@ -518,7 +522,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                     var privateMethodName = PrivateMethodNameFor(methodName!);
 
                     var func = expressionConverter.ConvertTopLevelFunctionDefinition(indentLevel, overload, privateMethodName, "private", true);
-                    
+
                     if (!string.IsNullOrEmpty(cacheLibraryName))
                     {
                         //var cacheFunction = CacheLibrary;
