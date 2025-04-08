@@ -19,6 +19,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Hl7.Cql.CodeGeneration.NET
 {
@@ -275,11 +276,11 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                     writeCachedValues(definitions, libraryName, writer, indentLevel);
 
+                    // Write constructor
                     if (!string.IsNullOrEmpty(cacheLibraryName))
                         writer.WriteLine(indentLevel, $"public {className}(CqlContext context, {cacheLibraryName} cache)");
                     else
                         writer.WriteLine(indentLevel, $"public {className}(CqlContext context)");
-
                     writer.WriteLine(indentLevel, "{");
                     {
                         indentLevel += 1;
@@ -374,7 +375,7 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             if (libraryName.StartsWith("Cache"))
             {
-                accessModifier = "public static";
+                accessModifier = "public";
             }
 
             foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
@@ -530,8 +531,16 @@ namespace Hl7.Cql.CodeGeneration.NET
                         // var a_ = Cache_2025_0_0.Has_hospice_during(); 
                         // to
                         // var a_ = cache.__Has_hospice_during?.Value;
-                        if (func.IndexOf(cacheLibraryName) > 0)
-                            func = func.Replace($"{cacheLibraryName}.", "cache.__").Replace("()", "?.Value");
+                        var cacheIndex = func.IndexOf(cacheLibraryName);
+                        if (cacheIndex > 0)
+                        {
+                            func = func.Replace($"{cacheLibraryName}.", "cache.__");
+
+                            string pattern = @"(cache\.\w+)\(\)";
+                            string replacement = "$1?.Value";
+                            var output = Regex.Replace(func, pattern, replacement);
+                            func = output;
+                        }  
                     }
                     writer.Write(func);
                     writer.WriteLine();
