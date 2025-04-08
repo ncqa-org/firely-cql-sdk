@@ -96,6 +96,8 @@ namespace Hl7.Cql.CodeGeneration.NET
 
         internal IList<string> ContextLibraries { get; set; } = new List<string>();
 
+        internal Elm.Library? CacheLibrary { get; set; }
+
         /// <summary>
         /// Writes C# source code from inputs.
         /// </summary>
@@ -150,6 +152,55 @@ namespace Hl7.Cql.CodeGeneration.NET
                     int indentLevel = 0;
                     WriteUsings(writer);
 
+                    var usesCache = false;
+                    var cacheLibraryName = ""; //cacheLibrary?.NodeId.Replace("-", "_").Replace(".", "_");
+
+                    var hasContext = false;
+                    var node = dependencyGraph.Nodes[libraryName];
+                    if (node.Properties != null
+                        && node.Properties.TryGetValue("Library", out var nodeLibrary))
+                    {
+                        var requiredUsesContext = false;
+                        var requiredLibraries = node.ForwardEdges?
+                            .Select(edge => edge.ToId)
+                            .Except(new[] { dependencyGraph.EndNode.NodeId })
+                            .Distinct();
+
+                        foreach (var dependentLibrary in requiredLibraries!)
+                        {
+                            var dependentNode = dependencyGraph.Nodes[dependentLibrary];
+                            // dependency uses a constructor so we will need make the entire class scoped vs singleton
+                            if (dependentNode.Properties != null &&
+                                dependentNode.Properties.TryGetValue("Library", out var dependNodeLibrary))
+                            {
+                                var elmLibrary = (Elm.Library)dependNodeLibrary;
+                                if (elmLibrary?.contexts != null)
+                                {
+                                    requiredUsesContext = true;
+
+                                    if (!ContextLibraries.Contains(dependentLibrary))
+                                        ContextLibraries.Add(dependentLibrary);
+                                }
+
+                                if (dependentLibrary.StartsWith("Cache"))
+                                {
+                                    if (CacheLibrary == null)
+                                        CacheLibrary = elmLibrary;
+
+                                    usesCache = true;
+                                    cacheLibraryName = dependentLibrary.Replace("-", "_").Replace(".", "_");
+                                }
+                            }
+                        }
+
+                        hasContext = ((Elm.Library)nodeLibrary)?.contexts != null || requiredUsesContext;
+                    }
+
+                    if (usesCache && hasContext)
+                    {
+                        writer.WriteLine($"using cache = {cacheLibraryName};");
+                    }
+
                     // Namespace
                     if (!string.IsNullOrWhiteSpace(Namespace))
                     {
@@ -159,7 +210,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                         indentLevel += 1;
                     }
 
-                    writeClass(definitions, dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel);
+                    writeClass(definitions, dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel, hasContext, cacheLibraryName);
 
                     if (!string.IsNullOrWhiteSpace(Namespace))
                     {
@@ -181,7 +232,9 @@ namespace Hl7.Cql.CodeGeneration.NET
             DirectedGraph dependencyGraph,
             Func<string?, string?> libraryNameToClassName,
             string libraryName, StreamWriter writer,
-            int indentLevel)
+            int indentLevel,
+            bool hasContext,
+            string? cacheLibraryName)
         {
             writer.WriteLine(indentLevel, $"[System.CodeDom.Compiler.GeneratedCode(\"{Tool}\", \"{Version}\")]");
 
@@ -207,37 +260,6 @@ namespace Hl7.Cql.CodeGeneration.NET
             writer.WriteLine(indentLevel, "{");
             writer.WriteLine();
             indentLevel += 1;
-
-            var hasContext = false;
-            var node = dependencyGraph.Nodes[libraryName];
-            if (node.Properties != null 
-                && node.Properties.TryGetValue("Library", out var nodeLibrary))
-            {
-                var requiredUsesContext = false;
-                var requiredLibraries = node.ForwardEdges?
-                    .Select(edge => edge.ToId)
-                    .Except(new[] { dependencyGraph.EndNode.NodeId })
-                    .Distinct();
-
-                foreach (var dependentLibrary in requiredLibraries!)
-                {
-                    var dependentNode = dependencyGraph.Nodes[dependentLibrary];
-                    // dependency uses a constructor so we will need make the entire class scoped vs singleton
-                    if (dependentNode.Properties != null &&
-                        dependentNode.Properties.TryGetValue("Library", out var dependNodeLibrary))
-                    {
-                        if (((Elm.Library)dependNodeLibrary)?.contexts != null)
-                        {
-                            requiredUsesContext = true;
-
-                            if (!ContextLibraries.Contains(dependentLibrary))
-                                ContextLibraries.Add(dependentLibrary);
-                        }
-                    }
-                }
-
-                hasContext = ((Elm.Library)nodeLibrary)?.contexts != null || requiredUsesContext;
-            }
 
             // Class
             {
@@ -279,21 +301,21 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                 WriteLibraryMembers(writer, dependencyGraph, libraryName, libraryNameToClassName!, indentLevel);
 
-                writeMethods(definitions, libraryName, writer, indentLevel, hasContext);
+                writeMethods(definitions, libraryName, writer, indentLevel, hasContext, cacheLibraryName);
 
                 indentLevel -= 1;
                 writer.WriteLine(indentLevel, "}");
             }
         }
 
-        private void writeMethods(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel, bool useLazy)
+        private void writeMethods(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel, bool useLazy, string? cacheLibraryName)
         {
             foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
             {
                 foreach (var overload in kvp.Value)
                 {
                     definitions.TryGetTags(libraryName, kvp.Key, overload.Signature, out var tags);
-                    writeMethod(libraryName, writer, indentLevel, useLazy, kvp.Key, overload.T, tags);
+                    writeMethod(libraryName, writer, indentLevel, useLazy, kvp.Key, overload.T, cacheLibraryName, tags);
                     writer.WriteLine();
                 }
             }
@@ -330,7 +352,8 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             foreach (var dependentLibrary in requiredLibraries!)
             {
-                if (ContextLibraries.Contains(dependentLibrary))
+                if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache"))
+                //if (ContextLibraries.Contains(dependentLibrary))
                 {
                     var typeName = libraryNameToClassName!(dependentLibrary);
                     var memberName = typeName;
@@ -344,6 +367,12 @@ namespace Hl7.Cql.CodeGeneration.NET
             writer.WriteLine(indentLevel, "#region Cached values");
             writer.WriteLine();
             var accessModifier = AccessModifierString(DefinesAccessModifier);
+
+            if (libraryName.StartsWith("Cache"))
+            {
+                accessModifier = "public static";
+            }
+
             foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
             {
                 foreach (var overload in kvp.Value)
@@ -423,7 +452,9 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                 foreach (var dependentLibrary in requiredLibraries)
                 {
-                    if (ContextLibraries.Contains(dependentLibrary))
+                    // library exists and it's not the "Cache" library
+                    //if (ContextLibraries.Contains(dependentLibrary))
+                    if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache"))
                     {
                         var typeName = libraryNameToClassName(dependentLibrary);
                         var memberName = typeName;
@@ -458,6 +489,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             bool useLazy,
             string cqlName,
             LambdaExpression overload,
+            string? cacheLibraryName,
             ILookup<string, string>? tags)
         {
             var methodName = VariableNameGenerator.NormalizeIdentifier(cqlName);
@@ -486,6 +518,17 @@ namespace Hl7.Cql.CodeGeneration.NET
                     var privateMethodName = PrivateMethodNameFor(methodName!);
 
                     var func = expressionConverter.ConvertTopLevelFunctionDefinition(indentLevel, overload, privateMethodName, "private", true);
+                    
+                    if (!string.IsNullOrEmpty(cacheLibraryName))
+                    {
+                        //var cacheFunction = CacheLibrary;
+                        // convert from
+                        // var a_ = Cache_2025_0_0.Has_hospice_during(); 
+                        // to
+                        // var a_ = cache.__Has_hospice_during?.Value;
+                        if (func.IndexOf(cacheLibraryName) > 0)
+                            func = func.Replace($"{cacheLibraryName}.", "cache.__").Replace("()", "?.Value");
+                    }
                     writer.Write(func);
                     writer.WriteLine();
                 }
