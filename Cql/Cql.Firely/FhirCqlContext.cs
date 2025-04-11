@@ -30,6 +30,15 @@ namespace Hl7.Cql.Fhir
                 parameters,
                 delegates);
 
+        internal static CqlContext createContext(ICqlOperators operators,
+            IDictionary<string, object>? parameters = null,
+            DefinitionDictionary<Delegate>? delegates = null,
+            FhirModelBindingOptions? options = null) =>
+            new CqlContext(
+                operators,
+                parameters,
+                delegates);
+
         /// <summary>
         /// Factory method for creating a setup of the engine with the given <see cref="Bundle"/>.
         /// </summary>
@@ -48,6 +57,20 @@ namespace Hl7.Cql.Fhir
         }
 
         /// <summary>
+        /// Factory method for creating a setup of the engine with the given <see cref="ICqlOperators"/>.
+        /// </summary>
+        /// <param name="operators"></param>
+        /// <param name="parameters"></param>
+        /// <param name="delegates"></param>
+        /// <returns></returns>
+        public static CqlContext ForOperators(ICqlOperators operators,
+            IDictionary<string, object>? parameters = null,
+            DefinitionDictionary<Delegate>? delegates = null)
+        {
+            return createContext(operators, parameters, delegates);
+        }
+
+        /// <summary>
         /// Factory method for creating a setup of the engine with the given <see cref="IDataSource"/>.
         /// </summary>
         public static CqlContext WithDataSource(IDataSource? source = null,
@@ -59,5 +82,6 @@ namespace Hl7.Cql.Fhir
         {
             return createContext(source, parameters, valueSets, now, delegates, options);
         }
+
     }
 }
