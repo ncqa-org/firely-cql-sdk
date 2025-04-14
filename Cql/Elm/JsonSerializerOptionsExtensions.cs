@@ -30,6 +30,7 @@ namespace Hl7.Cql.Elm
             options.Converters.Add(new DefConverter<ConceptDef>());
             options.Converters.Add(new DefConverter<ContextDef>());
             options.Converters.Add(new DefConverter<ExpressionDef>());
+            //options.Converters.Add(new VersionedIdentifierConverter());
             return options;
         }
     }

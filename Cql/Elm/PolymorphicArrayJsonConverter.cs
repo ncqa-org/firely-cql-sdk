@@ -54,7 +54,20 @@ namespace Hl7.Cql.Elm
 
         public override void Write(Utf8JsonWriter writer, T[] value, JsonSerializerOptions options)
         {
-            throw new NotImplementedException();
+            if (value == null)
+            {
+                writer.WriteNullValue();
+                return;
+            }
+
+            writer.WriteStartArray();
+
+            foreach (var item in value)
+            {
+                JsonSerializer.Serialize(writer, item, options);
+            }
+
+            writer.WriteEndArray();
         }
     }
 }

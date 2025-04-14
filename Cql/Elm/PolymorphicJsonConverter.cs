@@ -125,7 +125,31 @@ namespace Hl7.Cql.Elm
 
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
         {
-            throw new NotImplementedException();
+            if (value == null)
+            {
+                writer.WriteNullValue();
+                return;
+            }
+
+            var type = value.GetType();
+            writer.WriteStartObject();
+
+            // Write the "type" property to identify the type of the object
+            writer.WriteString("type", type.Name);
+
+            // Serialize all public properties of the object
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            foreach (var property in properties)
+            {
+                var propertyValue = property.GetValue(value);
+                if (propertyValue != null)
+                {
+                    writer.WritePropertyName(property.Name);
+                    JsonSerializer.Serialize(writer, propertyValue, property.PropertyType, options);
+                }
+            }
+
+            writer.WriteEndObject();
         }
     }
 }

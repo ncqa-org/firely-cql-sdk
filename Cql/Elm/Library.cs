@@ -268,6 +268,14 @@ namespace Hl7.Cql.Elm
                 into.Add(new DirectedGraphEdge(into.StartNode.NodeId, from.StartNode.NodeId));
             }
         }
+        public static void SaveToJson(Library library, Stream stream)
+        {
+            if (library == null)
+                throw new ArgumentNullException(nameof(library));
+            if (stream == null)
+                throw new ArgumentNullException(nameof(stream));
+            JsonSerializer.Serialize(stream, library, JsonSerializerOptions);
+        }
 
     }
 }

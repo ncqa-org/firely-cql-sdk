@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -30,8 +31,40 @@ namespace Hl7.Cql.Elm
         }
 
         public override void Write(Utf8JsonWriter writer, T[] value, JsonSerializerOptions options)
-        {
-            throw new NotImplementedException();
+        {           
+
+            writer.WriteStartObject();
+            writer.WritePropertyName("def");
+            writer.WriteStartArray();
+
+            foreach (var item in value)
+            {
+                var element = JsonSerializer.SerializeToElement(item, options);
+
+                writer.WriteStartObject();
+
+                bool hasTypeProperty = element.EnumerateObject()
+                                  .Any(p => p.NameEquals("type"));
+
+                if (!hasTypeProperty)
+                {
+                    writer.WriteString("type", item.GetType().Name);
+                }
+
+                foreach (var prop in element.EnumerateObject())
+                {
+                    if(prop.NameEquals("mediaType"))
+                    {
+                        continue;
+                    }
+                    prop.WriteTo(writer);
+                }
+
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
         }
     }
 }
