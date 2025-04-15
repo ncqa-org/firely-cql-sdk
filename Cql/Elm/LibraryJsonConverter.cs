@@ -38,15 +38,14 @@ namespace Hl7.Cql.Elm
 
         public override void Write(Utf8JsonWriter writer, Library library, JsonSerializerOptions options)
         {
+            // Write the library object
             writer.WriteStartObject();
             writer.WritePropertyName("library");
 
+            // Add the type property
             writer.WriteStartObject();
             writer.WriteString("type", Library.LibraryNodeProperty);
 
-            var converters = options.Converters
-                .Where(c => c is not LibraryJsonConverter)
-                .ToArray();
 
             var newOptions = new JsonSerializerOptions
             {
@@ -54,20 +53,28 @@ namespace Hl7.Cql.Elm
                 MaxDepth = options.MaxDepth,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             };
+
+            var converters = options.Converters
+                .Where(c => c is not LibraryJsonConverter)
+                .ToArray();
+
             foreach (var converter in converters)
             {
                 newOptions.Converters.Add(converter);
             }
 
-            var properties = typeof(Library).GetProperties()
-                .Where(p => p.Name != "Name" && p.Name != "Version" && p.Name != "NameAndVersion")
-                .ToArray();
+            var properties = typeof(Library).GetProperties();
+
             foreach (var property in properties)
             {
-                var value = property.GetValue(library);
-                if (value is not null)
+                if (property.Name == "Name" || property.Name == "Version" || property.Name == "NameAndVersion")
+                    continue;
+
+                var propertyValue = property.GetValue(library);
+
+                if (propertyValue is not null)
                 {
-                    var jsonElement = JsonSerializer.SerializeToElement(value, property.PropertyType, newOptions);
+                    var jsonElement = JsonSerializer.SerializeToElement(propertyValue, property.PropertyType, newOptions);
                     writer.WritePropertyName(property.Name);
 
                     if (jsonElement.ValueKind == JsonValueKind.Object)
@@ -80,7 +87,7 @@ namespace Hl7.Cql.Elm
 
                         if (!hasType)
                         {
-                            if (value is VersionedIdentifier)
+                            if (propertyValue is VersionedIdentifier)
                             {
                                 writer.WriteString("type", "VersionedIdentifier");
                             }
