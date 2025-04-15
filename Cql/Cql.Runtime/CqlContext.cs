@@ -28,7 +28,7 @@ namespace Hl7.Cql.Runtime
         public ICqlOperators Operators { get; }
 
         /// <summary>
-        /// Gets the values of library parameters for this execution.
+        /// Gets or sets the values of library parameters for this execution.
         /// </summary>
         /// <remarks>
         /// To scope a parameter to an individual library, use it's name and version string (e.g., "library-version") followed by <see cref="ParameterDelimiter"/> followed by the parameter name,
@@ -36,7 +36,7 @@ namespace Hl7.Cql.Runtime
         /// To scope a parameter globally, omit the library name and version.  If two libraries define the same parameter name but use different types, runtime errors will occur.
         /// If the value provided for a given parameter name is the incorrect type, a runtime error will occur.
         /// </remarks>
-        public IDictionary<string, object> Parameters { get; }
+        public IDictionary<string, object> Parameters { get; set; }
 
         /// <summary>
         /// Creates an instance.
