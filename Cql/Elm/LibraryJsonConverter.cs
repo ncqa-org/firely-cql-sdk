@@ -47,12 +47,15 @@ namespace Hl7.Cql.Elm
             writer.WriteString("type", Library.LibraryNodeProperty);
 
 
-            var newOptions = new JsonSerializerOptions
+            var newOptions = new JsonSerializerOptions()
             {
                 TypeInfoResolver = options.TypeInfoResolver,
                 MaxDepth = options.MaxDepth,
+                PropertyNamingPolicy = options.PropertyNamingPolicy,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             };
+
+            //newOptions.Converters.Remove(this);
 
             var converters = options.Converters
                 .Where(c => c is not LibraryJsonConverter)
@@ -66,11 +69,12 @@ namespace Hl7.Cql.Elm
             var properties = typeof(Library).GetProperties();
 
             foreach (var property in properties)
-            {
+            {         
                 if (property.Name == "Name" || property.Name == "Version" || property.Name == "NameAndVersion")
                     continue;
 
                 var propertyValue = property.GetValue(library);
+                var propertyName = char.ToUpper(property.Name[0]) + property.Name.Substring(1);
 
                 if (propertyValue is not null)
                 {
@@ -85,6 +89,7 @@ namespace Hl7.Cql.Elm
                             p.NameEquals("type") ||
                             (options.PropertyNamingPolicy?.ConvertName("type") == p.Name));
 
+
                         if (!hasType)
                         {
                             if (propertyValue is VersionedIdentifier)
@@ -92,7 +97,7 @@ namespace Hl7.Cql.Elm
                                 writer.WriteString("type", "VersionedIdentifier");
                             }
                             else
-                                writer.WriteString("type", $"{Library.LibraryNodeProperty}${property.Name}");
+                                writer.WriteString("type", $"{Library.LibraryNodeProperty}${propertyName}");
                         }
 
                         foreach (var prop in jsonElement.EnumerateObject())
