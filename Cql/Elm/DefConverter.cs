@@ -53,10 +53,35 @@ namespace Hl7.Cql.Elm
 
                 foreach (var prop in element.EnumerateObject())
                 {
-                    if(prop.NameEquals("mediaType"))
+                    if (prop.NameEquals("mediaType"))
                     {
                         continue;
                     }
+                    //if (prop.NameEquals("expression") && prop.Value.TryGetProperty("type", out var typeProp) && typeProp.GetString() == "Tuple")
+                    //{
+                    //    // Write out the expressions but iterate through it's elements and prepend type to each element
+                    //    writer.WritePropertyName(prop.Name);
+                    //    writer.WriteStartArray();
+                    //    foreach (var tupleElement in prop.Value.EnumerateArray())
+                    //    {
+                    //        writer.WriteStartObject();
+                    //        foreach (var tupleProp in tupleElement.EnumerateObject())
+                    //        {
+                    //            if (tupleProp.NameEquals("type"))
+                    //            {
+                    //                writer.WriteString("type", tupleElement.GetProperty("type").GetString());
+                    //            }
+                    //            else
+                    //            {
+                    //                writer.WritePropertyName(tupleProp.Name);
+                    //                tupleProp.WriteTo(writer);
+                    //            }
+                    //        }
+                    //        writer.WriteEndObject();
+                    //    }
+                    //    continue;
+                    //}
+
                     prop.WriteTo(writer);
                 }
 
