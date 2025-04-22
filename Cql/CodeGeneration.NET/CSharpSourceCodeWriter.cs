@@ -438,35 +438,35 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             if (ipDefines.Any())
             {
-                writer.WriteLine(indentLevel, "var hasValidIP = true;");
+                writer.WriteLine(indentLevel, "var hasIpTrue = false;");
                 foreach (var def in ipDefines)
                 {
                     var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
                     if (def.Value == typeof(bool) || def.Value == typeof(bool?))
-                        writer.WriteLine(indentLevel, $"hasValidIP = hasValidIP && (this.{methodName}() ?? false);");
+                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? false);");
                     else if (def.Value == typeof(int) || def.Value == typeof(int?))
-                        writer.WriteLine(indentLevel, $"hasValidIP = hasValidIP && (this.{methodName}() ?? 0) > 0;");
+                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? 0) > 0;");
                     else
-                        writer.WriteLine(indentLevel, $" hasValidIP = hasValidIP && (this.{methodName}()?.Any() ?? false);");
+                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}()?.Any() ?? false);");
                 }
-                writer.WriteLine(indentLevel, "if (!hasValidIP) return new Dictionary<string, object>();");
+                writer.WriteLine(indentLevel, "if (!hasIpTrue) return new Dictionary<string, object>();");
             }
 
             if (exclusionDefines.Any())
             {
-                writer.WriteLine(indentLevel, "var hasValidExclusion = true;");
+                writer.WriteLine(indentLevel, "var allExclusionsTrue = true;");
 
                 foreach (var def in exclusionDefines)
                 {
                     var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
                     if (def.Value == typeof(bool) || def.Value == typeof(bool?))
-                        writer.WriteLine(indentLevel, $"hasValidExclusion = hasValidExclusion && (this.{methodName}() ?? false);");
+                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? false);");
                     else if (def.Value == typeof(int) || def.Value == typeof(int?))
-                        writer.WriteLine(indentLevel, $"hasValidExclusion = hasValidExclusion && (this.{methodName}() ?? 0) > 0;");
+                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? 0) > 0;");
                     else
-                        writer.WriteLine(indentLevel, $" hasValidExclusion = hasValidExclusion && (this.{methodName}()?.Any() ?? false);");
+                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}()?.Any() ?? false);");
                 }
-                writer.WriteLine(indentLevel, "if (!hasValidExclusion) return new Dictionary<string, object>();");
+                writer.WriteLine(indentLevel, "if (allExclusionsTrue) return new Dictionary<string, object>();");
             }
             
             writer.WriteLine(indentLevel, "");
