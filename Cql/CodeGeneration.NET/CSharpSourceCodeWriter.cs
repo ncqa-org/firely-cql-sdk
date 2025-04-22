@@ -368,6 +368,11 @@ namespace Hl7.Cql.CodeGeneration.NET
                     {
                         allDefines.Add(kvp.Key);
 
+                        if (kvp.Key == "Patient")
+                        {
+                            populationDefines.Add(kvp.Key);
+                        }
+
                         var popTag = tags?.FirstOrDefault(t => t.Key == "population");
                         var groupTag = tags?.FirstOrDefault(t => t.Key == "group");
                         if (popTag != null && groupTag != null)
