@@ -151,6 +151,10 @@ namespace Hl7.Cql.Primitives
 
             var value = quantity!.value.Value;
             var dto = Value.DateTimeOffset;
+
+            if (dto.Equals(DateTimeOffset.MaxValue))
+                return null;
+
             switch (quantity.unit[0])
             {
                 case 'a':
@@ -207,6 +211,10 @@ namespace Hl7.Cql.Primitives
 
             var value = -1 * quantity!.value.Value;
             var dto = Value.DateTimeOffset;
+
+            if (dto.Equals(DateTimeOffset.MinValue))
+                return null;
+
             switch (quantity.unit[0])
             {
                 case 'a':
