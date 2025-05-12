@@ -524,32 +524,48 @@ namespace Hl7.Cql.Compiler
 
         private Expression SortByMultiple(MemberExpression operators, Expression source, Expression bys, Expression orders)
         {
-            if (bys is NewArrayExpression newArray && orders is NewArrayExpression orderArray)
+            if (bys is NewArrayExpression byArray && orders is NewArrayExpression orderArray)
             {
-                var elementType = TypeResolver.GetListElementType(source.Type) ?? throw new InvalidOperationException($"{source.Type} was expected to be a list type.");
-                var sortMethods = new List<Expression>();
-
-                for (int i = 0; i < newArray.Expressions.Count; i++)
+                if (byArray.Expressions.Count != orderArray.Expressions.Count)
                 {
-                    if (newArray.Expressions[i] is LambdaExpression lambda && orderArray.Expressions[i] is ConstantExpression orderConstant && orderConstant.Type == typeof(ListSortDirection))
+                    throw new ArgumentException("SortByMultiple expects matching arrays of 'bys' and 'orders'.", nameof(bys));
+                }
+
+                var elementType = TypeResolver.GetListElementType(source.Type)
+                    ?? throw new InvalidOperationException($"{source.Type} was expected to be a list type.");
+
+                var sortTuples = new List<Expression>();
+
+                for (int i = 0; i < byArray.Expressions.Count; i++)
+                {
+                    if (byArray.Expressions[i] is LambdaExpression lambda &&
+                        orderArray.Expressions[i] is ConstantExpression orderConstant &&
+                        orderConstant.Type == typeof(ListSortDirection))
                     {
-                        var method = OperatorsType
-                            .GetMethod(nameof(ICqlOperators.ListSortByMultiple))!
-                            .MakeGenericMethod(elementType);
-                        var call = Expression.Call(operators, method, source, lambda, orderConstant);
-                        sortMethods.Add(call);
+                        var tuple = Expression.New(
+                            typeof(ValueTuple<LambdaExpression, ListSortDirection>).GetConstructor(new[] { typeof(LambdaExpression), typeof(ListSortDirection) })!,
+                            lambda,
+                            orderConstant
+                        );
+                        sortTuples.Add(tuple);
                     }
                     else
                     {
-                        throw new ArgumentException("SortByMultiple expects matching arrays of lambdas and SortOrder constants", nameof(bys));
+                        throw new ArgumentException("SortByMultiple expects 'bys' to contain lambdas and 'orders' to contain ListSortDirection constants.", nameof(bys));
                     }
                 }
 
-                return sortMethods.Aggregate((current, next) => Expression.Call(next, current));
+                var tupleArray = Expression.NewArrayInit(typeof(ValueTuple<LambdaExpression, ListSortDirection>), sortTuples);
+
+                var method = OperatorsType
+                    .GetMethod(nameof(ICqlOperators.ListSortByMultiple))!
+                    .MakeGenericMethod(elementType);
+
+                return Expression.Call(operators, method, source, tupleArray);
             }
             else
             {
-                throw new ArgumentException("SortByMultiple expects arrays for both 'by' and 'order' parameters", nameof(bys));
+                throw new ArgumentException("SortByMultiple expects arrays for both 'bys' and 'orders' parameters.", nameof(bys));
             }
         }
 
