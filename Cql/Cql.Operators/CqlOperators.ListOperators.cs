@@ -1241,6 +1241,52 @@ namespace Hl7.Cql.Runtime
             else throw new NotSupportedException($"Unknown sort order {order}");
         }
 
+        public IEnumerable<T>? ListSortByMultiple<T>(IEnumerable<T> source, IEnumerable<(Func<T, object> SortBy, ListSortDirection Direction)> sortInstructions)
+        {
+            if (source == null || !source.Any() || sortInstructions == null || !sortInstructions.Any())
+            {
+                return null;
+            }
+
+            IOrderedEnumerable<T>? orderedSource = null;
+            bool isFirst = true;
+
+            foreach (var instruction in sortInstructions)
+            {
+                var sortByDelegate = instruction.SortBy;
+                var sortDirection = instruction.Direction;
+
+                if (isFirst)
+                {
+                    if (sortDirection == ListSortDirection.Ascending)
+                    {
+                        orderedSource = source.OrderBy(sortByDelegate);
+                    }
+                    else
+                    {
+                        orderedSource = source.OrderByDescending(sortByDelegate);
+                    }
+                    isFirst = false;
+                }
+                else
+                {
+                    if (orderedSource != null) // Ensure orderedSource is not null before calling ThenBy  
+                    {
+                        if (sortDirection == ListSortDirection.Ascending)
+                        {
+                            orderedSource = orderedSource.ThenBy(sortByDelegate);
+                        }
+                        else
+                        {
+                            orderedSource = orderedSource.ThenByDescending(sortByDelegate);
+                        }
+                    }
+                }
+            }
+
+            return orderedSource;
+        }
+
         #endregion
 
     }

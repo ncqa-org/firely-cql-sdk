@@ -441,6 +441,8 @@ namespace Hl7.Cql.Compiler
                     return BindUnaryOperator(nameof(ICqlOperators.Descendents), operators, parameters[0]);
                 case CqlOperator.SortBy:
                     return SortBy(operators, parameters[0], parameters[1], parameters[2]);
+                case CqlOperator.SortByMultiple:
+                    return SortByMultiple(operators, parameters[0], parameters[1], parameters[2]);
                 case CqlOperator.Aggregate:
                     return Aggregate(operators, parameters[0], parameters[1], parameters[2]);
                 case CqlOperator.Implies:
@@ -518,6 +520,37 @@ namespace Hl7.Cql.Compiler
 
             }
             else throw new ArgumentException("SortBy expects 3 parameters: source, lambda, and SortOrder constant", nameof(by));
+        }
+
+        private Expression SortByMultiple(MemberExpression operators, Expression source, Expression bys, Expression orders)
+        {
+            if (bys is NewArrayExpression newArray && orders is NewArrayExpression orderArray)
+            {
+                var elementType = TypeResolver.GetListElementType(source.Type) ?? throw new InvalidOperationException($"{source.Type} was expected to be a list type.");
+                var sortMethods = new List<Expression>();
+
+                for (int i = 0; i < newArray.Expressions.Count; i++)
+                {
+                    if (newArray.Expressions[i] is LambdaExpression lambda && orderArray.Expressions[i] is ConstantExpression orderConstant && orderConstant.Type == typeof(ListSortDirection))
+                    {
+                        var method = OperatorsType
+                            .GetMethod(nameof(ICqlOperators.ListSortByMultiple))!
+                            .MakeGenericMethod(elementType);
+                        var call = Expression.Call(operators, method, source, lambda, orderConstant);
+                        sortMethods.Add(call);
+                    }
+                    else
+                    {
+                        throw new ArgumentException("SortByMultiple expects matching arrays of lambdas and SortOrder constants", nameof(bys));
+                    }
+                }
+
+                return sortMethods.Aggregate((current, next) => Expression.Call(next, current));
+            }
+            else
+            {
+                throw new ArgumentException("SortByMultiple expects arrays for both 'by' and 'order' parameters", nameof(bys));
+            }
         }
 
         private Expression InList(MemberExpression operators, Expression left, Expression right)
