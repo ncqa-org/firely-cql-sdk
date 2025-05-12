@@ -1248,7 +1248,8 @@ namespace Hl7.Cql.Compiler
             }
 
             // For multiple sort expressions, use the SortByMultiple operator
-            var keySelectorArray = Expression.NewArrayInit(typeof(Delegate),
+
+            var keySelectorArray = Expression.NewArrayInit(typeof(Func<,>).MakeGenericType(elementType, typeof(object)),
                 sortExpressions.Select(se => se.keySelector));
             var directionsArray = Expression.NewArrayInit(typeof(ListSortDirection),
                 sortExpressions.Select(se => se.direction));

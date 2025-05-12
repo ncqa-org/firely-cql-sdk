@@ -542,9 +542,21 @@ namespace Hl7.Cql.Compiler
                         orderArray.Expressions[i] is ConstantExpression orderConstant &&
                         orderConstant.Type == typeof(ListSortDirection))
                     {
+                        // Create a new parameter of type object
+                        var newParameter = Expression.Parameter(typeof(object), lambda.Parameters[0].Name);
+
+                        // Replace the original parameter with the new parameter in the lambda body
+                        var replacedBody = ReplaceParameter(lambda.Body, lambda.Parameters[0], Expression.Convert(newParameter, lambda.Parameters[0].Type));
+
+                        // Create a new lambda with the updated parameter and body
+                        var convertedLambda = Expression.Lambda(
+                            typeof(Func<object, object>),
+                            Expression.Convert(replacedBody, typeof(object)),
+                            newParameter);
+
                         var tuple = Expression.New(
-                            typeof(ValueTuple<LambdaExpression, ListSortDirection>).GetConstructor(new[] { typeof(LambdaExpression), typeof(ListSortDirection) })!,
-                            lambda,
+                            typeof(ValueTuple<Func<object, object>, ListSortDirection>).GetConstructor(new[] { typeof(Func<object, object>), typeof(ListSortDirection) })!,
+                            convertedLambda,
                             orderConstant
                         );
                         sortTuples.Add(tuple);
@@ -555,17 +567,40 @@ namespace Hl7.Cql.Compiler
                     }
                 }
 
-                var tupleArray = Expression.NewArrayInit(typeof(ValueTuple<LambdaExpression, ListSortDirection>), sortTuples);
+                var tupleArray = Expression.NewArrayInit(typeof(ValueTuple<Func<object, object>, ListSortDirection>), sortTuples);
 
                 var method = OperatorsType
                     .GetMethod(nameof(ICqlOperators.ListSortByMultiple))!
                     .MakeGenericMethod(elementType);
 
-                return Expression.Call(operators, method, source, tupleArray);
+                var call=  Expression.Call(operators, method, source, tupleArray);
+                return call;
             }
             else
             {
                 throw new ArgumentException("SortByMultiple expects arrays for both 'bys' and 'orders' parameters.", nameof(bys));
+            }
+        }
+
+        private Expression ReplaceParameter(Expression body, ParameterExpression target, Expression replacement)
+        {
+            return new InlineParameterReplacer(target, replacement).Visit(body);
+        }
+
+        private class InlineParameterReplacer : ExpressionVisitor
+        {
+            private readonly ParameterExpression _target;
+            private readonly Expression _replacement;
+
+            public InlineParameterReplacer(ParameterExpression target, Expression replacement)
+            {
+                _target = target;
+                _replacement = replacement;
+            }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                return node == _target ? _replacement : base.VisitParameter(node);
             }
         }
 
