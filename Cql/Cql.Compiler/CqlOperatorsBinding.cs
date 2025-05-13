@@ -533,26 +533,7 @@ namespace Hl7.Cql.Compiler
 
                 var elementType = TypeResolver.GetListElementType(source.Type)
                     ?? throw new InvalidOperationException($"{source.Type} was expected to be a list type.");
-                #region Testing
-                //var sortByLambdas = new List<Expression>();
-                //var sortOrders = new List<Expression>();
-
-                //for (int i = 0; i < byArray.Expressions.Count; i++)
-                //{
-                //    if (byArray.Expressions[i] is LambdaExpression lambda &&
-                //        orderArray.Expressions[i] is ConstantExpression orderConstant &&
-                //        orderConstant.Type == typeof(ListSortDirection))
-                //    {
-                //        sortByLambdas.Add(lambda);
-                //        sortOrders.Add(orderConstant);
-                //    }
-                //    else
-                //    {
-                //        throw new ArgumentException("SortByMultiple expects 'sortByExpressions' to contain lambdas and 'sortDirections' to contain ListSortDirection constants.", nameof(sortByExpressions));
-                //    }
-                //}
-                #endregion 
-
+                
                 var method = OperatorsType
                     .GetMethod(nameof(ICqlOperators.ListSortByMultiple))!
                     .MakeGenericMethod(elementType);

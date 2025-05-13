@@ -1200,8 +1200,8 @@ namespace Hl7.Cql.Compiler
             Type elementType = TypeResolver.GetListElementType(source.Type, @throw: true)!;
             var parameterName = "@this";
 
-            // Create a list to hold tuples of (keySelector, direction)
-            var sortInstructions = new List<(Expression sortExpression, Expression direction)>();
+            // Create a list to hold tuples of (keySelector, direction)  
+            var sortInstructions = new List<(Expression sortExpression, ListSortDirection direction)>();
 
             foreach (var by in query.sort.by)
             {
@@ -1232,22 +1232,27 @@ namespace Hl7.Cql.Compiler
                 }
                 else
                 {
-                    // Simple sort without a key selector
+                    // Simple sort without a key selector  
                     return OperatorBinding.Bind(CqlOperator.Sort, ctx.RuntimeContextParameter,
                         source, Expression.Constant(order, typeof(ListSortDirection)));
                 }
 
-                sortInstructions.Add((sortKeySelector, Expression.Constant(order, typeof(ListSortDirection))));
+                sortInstructions.Add((sortKeySelector, order));
             }
 
-            // If we have just one sort expression, use the simple SortBy
+            // If we have just one sort expression, use the simple SortBy  
             if (sortInstructions.Count == 1)
             {
-                return OperatorBinding.Bind(CqlOperator.SortBy, ctx.RuntimeContextParameter,
-                    source, sortInstructions[0].sortExpression, sortInstructions[0].direction);
+                return OperatorBinding.Bind(
+                    CqlOperator.SortBy,
+                    ctx.RuntimeContextParameter,
+                    source,
+                    sortInstructions[0].sortExpression,
+                    Expression.Constant(sortInstructions[0].direction, typeof(ListSortDirection))
+                );
             }
 
-            // For multiple sort expressions, use the SortByMultiple operator
+            // For multiple sort expressions, use the SortByMultiple operator  
             var keySelectorList = Expression.ListInit(
                Expression.New(typeof(List<>).MakeGenericType(typeof(Func<,>).MakeGenericType(elementType, typeof(object)))),
                sortInstructions.Select(se => se.sortExpression)
@@ -1255,7 +1260,7 @@ namespace Hl7.Cql.Compiler
 
             var directionsList = Expression.ListInit(
                Expression.New(typeof(List<ListSortDirection>)),
-               sortInstructions.Select(se => se.direction)
+               sortInstructions.Select(se => Expression.Constant(se.direction, typeof(ListSortDirection)))
             );
 
             return OperatorBinding.Bind(CqlOperator.SortByMultiple, ctx.RuntimeContextParameter,
