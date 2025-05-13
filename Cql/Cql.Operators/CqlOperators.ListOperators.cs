@@ -1241,22 +1241,32 @@ namespace Hl7.Cql.Runtime
             else throw new NotSupportedException($"Unknown sort order {order}");
         }
 
-        public IEnumerable<T>? ListSortByMultiple<T>(IEnumerable<T> source, IEnumerable<(Func<T, object> SortBy, ListSortDirection Direction)> sortInstructions)
+        public IEnumerable<T>? ListSortByMultiple<T>(IEnumerable<T> source, IEnumerable<Delegate> sortByExpressions, IEnumerable<ListSortDirection> sortDirections)
         {
-            if (source == null || !source.Any() || sortInstructions == null || !sortInstructions.Any())
+            if (source == null || !source.Any() || sortByExpressions == null || !sortByExpressions.Any() || sortDirections == null || !sortDirections.Any())
             {
                 return null;
             }
 
-            IOrderedEnumerable<T>? orderedSource = null;
-            bool isFirst = true;
+            var sortByExpressionList = sortByExpressions.ToList();
+            var sortDirectionList = sortDirections.ToList();
 
-            foreach (var instruction in sortInstructions)
+            if (sortByExpressionList.Count != sortDirectionList.Count)
             {
-                var sortByDelegate = instruction.SortBy;
-                var sortDirection = instruction.Direction;
+                throw new ArgumentException("The number of sort expressions must match the number of sort directions.");
+            }
 
-                if (isFirst)
+            IOrderedEnumerable<T>? orderedSource = null;
+            for (int i = 0; i < sortByExpressionList.Count; i++)
+            {
+                if (sortByExpressionList[i] is not Func<T, object> sortByDelegate)
+                {
+                    throw new InvalidCastException($"The sort expression at index {i} is not of type Func<T, object>.");
+                }
+
+                var sortDirection = sortDirectionList[i];
+
+                if (i == 0)
                 {
                     if (sortDirection == ListSortDirection.Ascending)
                     {
@@ -1266,7 +1276,6 @@ namespace Hl7.Cql.Runtime
                     {
                         orderedSource = source.OrderByDescending(sortByDelegate);
                     }
-                    isFirst = false;
                 }
                 else
                 {

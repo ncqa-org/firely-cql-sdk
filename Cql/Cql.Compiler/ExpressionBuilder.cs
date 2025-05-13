@@ -1201,7 +1201,7 @@ namespace Hl7.Cql.Compiler
             var parameterName = "@this";
 
             // Create a list to hold tuples of (keySelector, direction)
-            var sortExpressions = new List<(Expression keySelector, Expression direction)>();
+            var sortInstructions = new List<(Expression sortExpression, Expression direction)>();
 
             foreach (var by in query.sort.by)
             {
@@ -1237,25 +1237,29 @@ namespace Hl7.Cql.Compiler
                         source, Expression.Constant(order, typeof(ListSortDirection)));
                 }
 
-                sortExpressions.Add((sortKeySelector, Expression.Constant(order, typeof(ListSortDirection))));
+                sortInstructions.Add((sortKeySelector, Expression.Constant(order, typeof(ListSortDirection))));
             }
 
             // If we have just one sort expression, use the simple SortBy
-            if (sortExpressions.Count == 1)
+            if (sortInstructions.Count == 1)
             {
                 return OperatorBinding.Bind(CqlOperator.SortBy, ctx.RuntimeContextParameter,
-                    source, sortExpressions[0].keySelector, sortExpressions[0].direction);
+                    source, sortInstructions[0].sortExpression, sortInstructions[0].direction);
             }
 
             // For multiple sort expressions, use the SortByMultiple operator
+            var keySelectorList = Expression.ListInit(
+               Expression.New(typeof(List<>).MakeGenericType(typeof(Func<,>).MakeGenericType(elementType, typeof(object)))),
+               sortInstructions.Select(se => se.sortExpression)
+            );
 
-            var keySelectorArray = Expression.NewArrayInit(typeof(Func<,>).MakeGenericType(elementType, typeof(object)),
-                sortExpressions.Select(se => se.keySelector));
-            var directionsArray = Expression.NewArrayInit(typeof(ListSortDirection),
-                sortExpressions.Select(se => se.direction));
+            var directionsList = Expression.ListInit(
+               Expression.New(typeof(List<ListSortDirection>)),
+               sortInstructions.Select(se => se.direction)
+            );
 
             return OperatorBinding.Bind(CqlOperator.SortByMultiple, ctx.RuntimeContextParameter,
-                source, keySelectorArray, directionsArray);
+                source, keySelectorList, directionsList);
         }
 
         protected Expression MultiSourceQuery(Query query, ExpressionBuilderContext ctx)

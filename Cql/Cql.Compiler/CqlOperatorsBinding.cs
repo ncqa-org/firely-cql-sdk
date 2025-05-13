@@ -522,87 +522,49 @@ namespace Hl7.Cql.Compiler
             else throw new ArgumentException("SortBy expects 3 parameters: source, lambda, and SortOrder constant", nameof(by));
         }
 
-        private Expression SortByMultiple(MemberExpression operators, Expression source, Expression bys, Expression orders)
+        private Expression SortByMultiple(MemberExpression operators, Expression source, Expression sortExpressions, Expression sortDirections)
         {
-            if (bys is NewArrayExpression byArray && orders is NewArrayExpression orderArray)
+            if (sortExpressions is ListInitExpression byList && sortDirections is ListInitExpression orderList)
             {
-                if (byArray.Expressions.Count != orderArray.Expressions.Count)
+                if (byList.Initializers.Count != orderList.Initializers.Count)
                 {
-                    throw new ArgumentException("SortByMultiple expects matching arrays of 'bys' and 'orders'.", nameof(bys));
+                    throw new ArgumentException("SortByMultiple expects matching arrays of 'sortByExpressions' and 'sortDirections'.", nameof(sortExpressions));
                 }
 
                 var elementType = TypeResolver.GetListElementType(source.Type)
                     ?? throw new InvalidOperationException($"{source.Type} was expected to be a list type.");
+                #region Testing
+                //var sortByLambdas = new List<Expression>();
+                //var sortOrders = new List<Expression>();
 
-                var sortTuples = new List<Expression>();
-
-                for (int i = 0; i < byArray.Expressions.Count; i++)
-                {
-                    if (byArray.Expressions[i] is LambdaExpression lambda &&
-                        orderArray.Expressions[i] is ConstantExpression orderConstant &&
-                        orderConstant.Type == typeof(ListSortDirection))
-                    {
-                        // Create a new parameter of type object
-                        var newParameter = Expression.Parameter(typeof(object), lambda.Parameters[0].Name);
-
-                        // Replace the original parameter with the new parameter in the lambda body
-                        var replacedBody = ReplaceParameter(lambda.Body, lambda.Parameters[0], Expression.Convert(newParameter, lambda.Parameters[0].Type));
-
-                        // Create a new lambda with the updated parameter and body
-                        var convertedLambda = Expression.Lambda(
-                            typeof(Func<object, object>),
-                            Expression.Convert(replacedBody, typeof(object)),
-                            newParameter);
-
-                        var tuple = Expression.New(
-                            typeof(ValueTuple<Func<object, object>, ListSortDirection>).GetConstructor(new[] { typeof(Func<object, object>), typeof(ListSortDirection) })!,
-                            convertedLambda,
-                            orderConstant
-                        );
-                        sortTuples.Add(tuple);
-                    }
-                    else
-                    {
-                        throw new ArgumentException("SortByMultiple expects 'bys' to contain lambdas and 'orders' to contain ListSortDirection constants.", nameof(bys));
-                    }
-                }
-
-                var tupleArray = Expression.NewArrayInit(typeof(ValueTuple<Func<object, object>, ListSortDirection>), sortTuples);
+                //for (int i = 0; i < byArray.Expressions.Count; i++)
+                //{
+                //    if (byArray.Expressions[i] is LambdaExpression lambda &&
+                //        orderArray.Expressions[i] is ConstantExpression orderConstant &&
+                //        orderConstant.Type == typeof(ListSortDirection))
+                //    {
+                //        sortByLambdas.Add(lambda);
+                //        sortOrders.Add(orderConstant);
+                //    }
+                //    else
+                //    {
+                //        throw new ArgumentException("SortByMultiple expects 'sortByExpressions' to contain lambdas and 'sortDirections' to contain ListSortDirection constants.", nameof(sortByExpressions));
+                //    }
+                //}
+                #endregion 
 
                 var method = OperatorsType
                     .GetMethod(nameof(ICqlOperators.ListSortByMultiple))!
                     .MakeGenericMethod(elementType);
 
-                var call=  Expression.Call(operators, method, source, tupleArray);
+                var call = Expression.Call(operators, method, source, sortExpressions, sortDirections);
                 return call;
             }
             else
             {
-                throw new ArgumentException("SortByMultiple expects arrays for both 'bys' and 'orders' parameters.", nameof(bys));
+                throw new ArgumentException("SortByMultiple expects List for both 'sortByExpressions' and 'sortDirections' parameters.", nameof(sortExpressions));
             }
-        }
-
-        private Expression ReplaceParameter(Expression body, ParameterExpression target, Expression replacement)
-        {
-            return new InlineParameterReplacer(target, replacement).Visit(body);
-        }
-
-        private class InlineParameterReplacer : ExpressionVisitor
-        {
-            private readonly ParameterExpression _target;
-            private readonly Expression _replacement;
-
-            public InlineParameterReplacer(ParameterExpression target, Expression replacement)
-            {
-                _target = target;
-                _replacement = replacement;
-            }
-
-            protected override Expression VisitParameter(ParameterExpression node)
-            {
-                return node == _target ? _replacement : base.VisitParameter(node);
-            }
-        }
+        }        
 
         private Expression InList(MemberExpression operators, Expression left, Expression right)
         {

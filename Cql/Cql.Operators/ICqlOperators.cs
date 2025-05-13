@@ -324,7 +324,7 @@ namespace Hl7.Cql.Operators
         IEnumerable<T>? ListSkip<T>(IEnumerable<T> argument, int? number);
         IEnumerable<T>? ListSort<T>(IEnumerable<T>? source, ListSortDirection order);
         IEnumerable<T>? ListSortBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection order);
-        IEnumerable<T>? ListSortByMultiple<T>(IEnumerable<T> source, IEnumerable<(Func<T, object> SortBy, ListSortDirection Direction)> sortInstructions);
+        IEnumerable<T>? ListSortByMultiple<T>(IEnumerable<T> source, IEnumerable<Delegate> sortByExpressions, IEnumerable<ListSortDirection> sortDirections);
         IEnumerable<T>? ListTail<T>(IEnumerable<T> argument);
         IEnumerable<T>? ListTake<T>(IEnumerable<T> argument, int? number);
         IEnumerable<T>? ListUnion<T>(IEnumerable<T>? left, IEnumerable<T>? right);

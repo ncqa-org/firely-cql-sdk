@@ -53,6 +53,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 CaseWhenThenExpression cwt => convertCaseWhenThenExpression(indent, cwt),
                 FunctionCallExpression fce => convertFunctionCallExpression(indent, leadingIndentString, fce),
                 DefinitionCallExpression dce => convertDefinitionCallExpression(indent, leadingIndentString, dce),
+                ListInitExpression lie => convertListInitExpression(indent, leadingIndentString, lie),
                 ElmAsExpression ea => ConvertExpression(indent, ea.Reduce(), leadingIndent),
                 _ => throw new NotSupportedException($"Don't know how to convert an expression of type {expression.GetType()} into C#."),
             };
@@ -228,6 +229,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             sb.Append(convertArguments(indent, paramList));
             return sb.ToString();
         }
+
 
         private string convertArguments(int indent, IEnumerable<Expression> paramList)
         {
@@ -593,6 +595,26 @@ namespace Hl7.Cql.CodeGeneration.NET
                 var binaryString = $"{leadingIndentString}({leftCode} {@operator} {rightCode})";
                 return binaryString;
             }
+        }
+
+        private string convertListInitExpression(int indent, string leadingIndentString, ListInitExpression listInit)
+        {
+            var sb = new StringBuilder();
+            sb.Append(leadingIndentString);
+
+            var listType = PrettyTypeName(listInit.Type);
+            sb.AppendLine(CultureInfo.InvariantCulture, $"new {listType}");
+            sb.AppendLine(IndentString(indent) + "{");
+
+            foreach (var initializer in listInit.Initializers)
+            {
+                var arguments = initializer.Arguments.Select(arg => ConvertExpression(indent + 1, arg, false));
+                var argumentString = string.Join(", ", arguments);
+                sb.AppendLine(IndentString(indent + 1) + $"{{ {argumentString} }},");
+            }
+
+            sb.Append(IndentString(indent) + "}");
+            return sb.ToString();
         }
 
         private static string BinaryOperatorFor(ExpressionType nodeType) => nodeType switch
