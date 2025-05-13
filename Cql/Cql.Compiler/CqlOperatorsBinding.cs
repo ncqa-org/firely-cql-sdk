@@ -441,8 +441,8 @@ namespace Hl7.Cql.Compiler
                     return BindUnaryOperator(nameof(ICqlOperators.Descendents), operators, parameters[0]);
                 case CqlOperator.SortBy:
                     return SortBy(operators, parameters[0], parameters[1], parameters[2]);
-                case CqlOperator.SortByMultiple:
-                    return SortByMultiple(operators, parameters[0], parameters[1], parameters[2]);
+                case CqlOperator.ThenBy:
+                    return ThenBy(operators, parameters[0], parameters[1], parameters[2]);
                 case CqlOperator.Aggregate:
                     return Aggregate(operators, parameters[0], parameters[1], parameters[2]);
                 case CqlOperator.Implies:
@@ -522,30 +522,19 @@ namespace Hl7.Cql.Compiler
             else throw new ArgumentException("SortBy expects 3 parameters: source, lambda, and SortOrder constant", nameof(by));
         }
 
-        private Expression SortByMultiple(MemberExpression operators, Expression source, Expression sortExpressions, Expression sortDirections)
+        private Expression ThenBy(MemberExpression operators, Expression source, Expression by, Expression order)
         {
-            if (sortExpressions is ListInitExpression byList && sortDirections is ListInitExpression orderList)
+            if (by is LambdaExpression lambda && order is ConstantExpression orderConstant && orderConstant.Type == typeof(ListSortDirection))
             {
-                if (byList.Initializers.Count != orderList.Initializers.Count)
-                {
-                    throw new ArgumentException("SortByMultiple expects matching arrays of 'sortByExpressions' and 'sortDirections'.", nameof(sortExpressions));
-                }
-
-                var elementType = TypeResolver.GetListElementType(source.Type)
-                    ?? throw new InvalidOperationException($"{source.Type} was expected to be a list type.");
-                
+                var elementType = TypeResolver.GetListElementType(source.Type) ?? throw new InvalidOperationException($"{source.Type} was expected to be a list type.");
                 var method = OperatorsType
-                    .GetMethod(nameof(ICqlOperators.ListSortByMultiple))!
+                    .GetMethod(nameof(ICqlOperators.ListThenBy))!
                     .MakeGenericMethod(elementType);
-
-                var call = Expression.Call(operators, method, source, sortExpressions, sortDirections);
+                var call = Expression.Call(operators, method, source, lambda, orderConstant);
                 return call;
             }
-            else
-            {
-                throw new ArgumentException("SortByMultiple expects List for both 'sortByExpressions' and 'sortDirections' parameters.", nameof(sortExpressions));
-            }
-        }        
+            else throw new ArgumentException("ThenBy expects 3 parameters: source, lambda, and SortOrder constant", nameof(by));
+        }
 
         private Expression InList(MemberExpression operators, Expression left, Expression right)
         {
