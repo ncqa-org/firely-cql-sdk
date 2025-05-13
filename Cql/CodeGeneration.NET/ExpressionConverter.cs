@@ -230,7 +230,6 @@ namespace Hl7.Cql.CodeGeneration.NET
             return sb.ToString();
         }
 
-
         private string convertArguments(int indent, IEnumerable<Expression> paramList)
         {
             var sb = new StringBuilder();
@@ -596,7 +595,6 @@ namespace Hl7.Cql.CodeGeneration.NET
                 return binaryString;
             }
         }
-
         private string convertListInitExpression(int indent, string leadingIndentString, ListInitExpression listInit)
         {
             var sb = new StringBuilder();
