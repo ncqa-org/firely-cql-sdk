@@ -1242,7 +1242,7 @@ namespace Hl7.Cql.Runtime
             else throw new NotSupportedException($"Unknown sort order {sortDirection}");
         }
 
-        public IEnumerable<T>? ListThenBy<T>(IOrderedEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
+        public IOrderedEnumerable<T>? ListThenBy<T>(IOrderedEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
         {
             if (source == null || sortByExpr == null)
                 return null;
