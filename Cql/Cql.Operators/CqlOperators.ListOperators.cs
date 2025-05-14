@@ -1227,14 +1227,17 @@ namespace Hl7.Cql.Runtime
                 var nullRecords = source.Where(s => sortByExpr(s) == null);
                 var nonNullRecords = source.Where(s => sortByExpr(s) != null);
                 var ordered = nonNullRecords.OrderBy(source => sortByExpr(source), DataComparer);
-                return ordered.Concat(nullRecords).OrderBy(x => 0); // Ensure the return type is IOrderedEnumerable<T>
+                var orderedList = nullRecords.Concat(ordered).OrderBy(x => 0); // Ensure the return type is IOrderedEnumerable<T> and nulls are first
+                return orderedList;
+
             }
             else if (sortDirection == ListSortDirection.Descending)
             {
                 var nullRecords = source.Where(s => sortByExpr(s) == null);
                 var nonNullRecords = source.Where(s => sortByExpr(s) != null);
                 var ordered = nonNullRecords.OrderByDescending(source => sortByExpr(source), DataComparer);
-                return ordered.Concat(nullRecords).OrderBy(x => 0); // Ensure the return type is IOrderedEnumerable<T>
+                var orderedlist = nullRecords.Concat(ordered).OrderBy(x => 0); // Ensure the return type is IOrderedEnumerable<T> and nulls are first
+                return orderedlist;
             }
             else throw new NotSupportedException($"Unknown sort order {sortDirection}");
         }
@@ -1246,11 +1249,17 @@ namespace Hl7.Cql.Runtime
 
             if (sortDirection == ListSortDirection.Ascending)
             {
-                return source.ThenBy(sortByExpr);
+                // Nulls first, then by sortByExpr ascending
+                return source
+                    .ThenBy(x => sortByExpr(x) == null ? 0 : 1)
+                    .ThenBy(sortByExpr);
             }
             else if (sortDirection == ListSortDirection.Descending)
             {
-                return source.ThenByDescending(sortByExpr);
+                // Nulls first, then by sortByExpr descending
+                return source
+                    .ThenBy(x => sortByExpr(x) == null ? 0 : 1)
+                    .ThenByDescending(sortByExpr);
             }
             else
             {
