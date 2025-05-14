@@ -594,7 +594,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 return binaryString;
             }
         }
-
+        
         private static string BinaryOperatorFor(ExpressionType nodeType) => nodeType switch
         {
             ExpressionType.Add => "+",

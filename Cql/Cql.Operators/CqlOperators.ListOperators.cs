@@ -1218,27 +1218,50 @@ namespace Hl7.Cql.Runtime
             else throw new NotSupportedException($"Unknown sort order {order}");
         }
 
-        public IEnumerable<T>? ListSortBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection order)
+        public IOrderedEnumerable<T>? ListSortBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
         {
             if (source == null)
                 return null;
-            if (order == ListSortDirection.Ascending)
+
+            // Nulls first, then by sortByExpr ascending
+            var nullOrdered = source.OrderBy(x => sortByExpr(x) == null ? 0 : 1);
+
+            if (sortDirection == ListSortDirection.Ascending)
             {
-                var nullRecords = source.Where(s => sortByExpr(s) == null);
-                var nonNullRecords = source.Where(s => sortByExpr(s) != null);
-                var ordered = nonNullRecords.OrderBy(source => sortByExpr(source), DataComparer);
-                var result = nullRecords.Concat(ordered);
-                return result;
+                var orderedList = nullOrdered.ThenBy(source => sortByExpr(source), DataComparer);
+                return orderedList;
+
             }
-            else if (order == ListSortDirection.Descending)
+            else if (sortDirection == ListSortDirection.Descending)
             {
-                var nullRecords = source.Where(s => sortByExpr(s) == null);
-                var nonNullRecords = source.Where(s => sortByExpr(s) != null);
-                var ordered = nonNullRecords.OrderByDescending(source => sortByExpr(source), DataComparer);
-                var result = ordered.Concat(nullRecords);
-                return result;
+                var orderedList = nullOrdered.ThenByDescending(source => sortByExpr(source), DataComparer);
+                return orderedList;
             }
-            else throw new NotSupportedException($"Unknown sort order {order}");
+            else throw new NotSupportedException($"Unknown sort order {sortDirection}");
+        }
+
+        public IOrderedEnumerable<T>? ListThenBy<T>(IOrderedEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
+        {
+            if (source == null || sortByExpr == null)
+                return null;
+
+            // Nulls first, then by sortByExpr ascending
+            var nullOrdered = source.ThenBy(x => sortByExpr(x) == null ? 0 : 1);
+
+            if (sortDirection == ListSortDirection.Ascending)
+            {
+                return nullOrdered
+                    .ThenBy(sortByExpr, DataComparer);
+            }
+            else if (sortDirection == ListSortDirection.Descending)
+            {
+                return nullOrdered
+                    .ThenByDescending(sortByExpr, DataComparer); ;
+            }
+            else
+            {
+                throw new NotSupportedException($"Unknown sort order {sortDirection}");
+            }
         }
 
         #endregion
