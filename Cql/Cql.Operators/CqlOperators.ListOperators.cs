@@ -1224,7 +1224,7 @@ namespace Hl7.Cql.Runtime
                 return null;
 
             // Nulls first, then by sortByExpr ascending
-            var nullOrdered = source.OrderBy(x => x == null ? 0 : 1);
+            var nullOrdered = source.OrderBy(x => sortByExpr(x) == null ? 0 : 1);
 
             if (sortDirection == ListSortDirection.Ascending)
             {
