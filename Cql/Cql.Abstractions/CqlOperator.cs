@@ -168,6 +168,7 @@ namespace Hl7.Cql.Abstractions
         Where,
         Sort,
         SortBy,
+        ThenBy,
         Single,
         MeetsAfter,
         MeetsBefore,

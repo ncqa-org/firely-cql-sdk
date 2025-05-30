@@ -1182,51 +1182,7 @@ namespace Hl7.Cql.Compiler
             //[System.Xml.Serialization.XmlIncludeAttribute(typeof(ByExpression))]
             //[System.Xml.Serialization.XmlIncludeAttribute(typeof(ByColumn))]
             //[System.Xml.Serialization.XmlIncludeAttribute(typeof(ByDirection))]
-            if (query.sort != null && query.sort.by != null && query.sort.by.Length > 0)
-            {
-                foreach (var by in query.sort.by)
-                {
-                    ListSortDirection order = ExtensionMethods.ListSortOrder(by.direction);
-                    if (by is ByExpression byExpression)
-                    {
-                        var parameterName = "@this";
-                        var returnElementType = TypeResolver.GetListElementType(@return.Type, true)!;
-                        var sortMemberParameter = Expression.Parameter(returnElementType, parameterName);
-                        var subContext = ctx.WithImpliedAlias(parameterName!, sortMemberParameter, byExpression.expression);
-                        var sortMemberExpression = TranslateExpression(byExpression.expression, subContext);
-                        var lambdaBody = Expression.Convert(sortMemberExpression, typeof(object));
-                        var sortLambda = System.Linq.Expressions.Expression.Lambda(lambdaBody, sortMemberParameter);
-                        var sort = OperatorBinding.Bind(CqlOperator.SortBy, ctx.RuntimeContextParameter,
-                            @return, sortLambda, Expression.Constant(order, typeof(ListSortDirection)));
-                        @return = sort;
-                    }
-                    else if (by is ByColumn byColumn)
-                    {
-                        var parameterName = "@this";
-                        var returnElementType = TypeResolver.GetListElementType(@return.Type, true)!;
-                        var sortMemberParameter = Expression.Parameter(returnElementType, parameterName);
-                        var pathMemberType = TypeManager.TypeFor(byColumn, ctx);
-                        if (pathMemberType == null)
-                        {
-                            var msg = $"Type specifier {by.resultTypeName} at {by.locator ?? "unknown"} could not be resolved.";
-                            ctx.LogError(msg);
-                            throw new InvalidOperationException(msg);
-                        }
-                        var pathExpression = PropertyHelper(sortMemberParameter, byColumn.path, pathMemberType!, ctx);
-                        var lambdaBody = Expression.Convert(pathExpression, typeof(object));
-                        var sortLambda = System.Linq.Expressions.Expression.Lambda(lambdaBody, sortMemberParameter);
-                        var sort = OperatorBinding.Bind(CqlOperator.SortBy, ctx.RuntimeContextParameter,
-                            @return, sortLambda, Expression.Constant(order, typeof(ListSortDirection)));
-                        @return = sort;
-                    }
-                    else
-                    {
-                        var sort = OperatorBinding.Bind(CqlOperator.Sort, ctx.RuntimeContextParameter,
-                            @return, Expression.Constant(order, typeof(ListSortDirection)));
-                        @return = sort;
-                    }
-                }
-            }
+            @return = HandleQuerySort(query, @return, ctx);
 
             if (isSingle)
             {
@@ -1236,6 +1192,76 @@ namespace Hl7.Cql.Compiler
 
             return @return;
         }
+        protected Expression HandleQuerySort(Query query, Expression source, ExpressionBuilderContext ctx)
+        {
+            if (query?.sort == null || query.sort.by == null || query.sort.by.Length == 0)
+                return source;
+
+            Type elementType = TypeResolver.GetListElementType(source.Type, @throw: true)!;
+            var parameterName = "@this";
+
+            // Local function to build the sort key selector lambda
+            Expression BuildSortKeySelector(SortByItem byItem)
+            {
+                var sortMemberParameter = Expression.Parameter(elementType, parameterName);
+                if (byItem is ByExpression byExpression)
+                {
+                    var subContext = ctx.WithImpliedAlias(parameterName!, sortMemberParameter, byExpression.expression);
+                    var sortMemberExpression = TranslateExpression(byExpression.expression, subContext);
+                    var lambdaBody = Expression.Convert(sortMemberExpression, typeof(object));
+                    return Expression.Lambda(lambdaBody, sortMemberParameter);
+                }
+                else if (byItem is ByColumn byColumn)
+                {
+                    var pathMemberType = TypeManager.TypeFor(byColumn, ctx);
+                    if (pathMemberType == null)
+                    {
+                        var msg = $"Type specifier {byItem.resultTypeName} at {byItem.locator ?? "unknown"} could not be resolved.";
+                        ctx.LogError(msg);
+                        throw new InvalidOperationException(msg);
+                    }
+                    var pathExpression = PropertyHelper(sortMemberParameter, byColumn.path, pathMemberType!, ctx);
+                    var lambdaBody = Expression.Convert(pathExpression, typeof(object));
+                    return Expression.Lambda(lambdaBody, sortMemberParameter);
+                }
+                else
+                {
+                    return null!;
+                }
+            }
+
+            Expression orderedList = source;
+            for (int i = 0; i < query.sort.by.Length; i++)
+            {
+                var byItem = query.sort.by[i];
+                ListSortDirection order = ExtensionMethods.ListSortOrder(byItem.direction);
+
+                var keySelector = BuildSortKeySelector(byItem);
+
+                if (keySelector != null)
+                {
+                    var op = (i == 0) ? CqlOperator.SortBy : CqlOperator.ThenBy;
+                    orderedList = OperatorBinding.Bind(
+                        op,
+                        ctx.RuntimeContextParameter,
+                        orderedList,
+                        keySelector,
+                        Expression.Constant(order, typeof(ListSortDirection))
+                    );
+                }
+                else
+                {
+                    // Simple sort without a key selector  
+                    orderedList = OperatorBinding.Bind(CqlOperator.Sort, ctx.RuntimeContextParameter,
+                        orderedList, Expression.Constant(order, typeof(ListSortDirection)));
+                }
+            }
+            // Convert the ordered result to a IEnumerable
+            var ienumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+            var asEnumerable = Expression.TypeAs(orderedList, ienumerableType);
+            return asEnumerable;
+        }
+
         protected Expression MultiSourceQuery(Query query, ExpressionBuilderContext ctx)
         {
             // The technique here is to create a cross product of all the query sources.
