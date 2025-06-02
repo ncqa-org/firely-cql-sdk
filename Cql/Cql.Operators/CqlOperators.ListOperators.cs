@@ -699,7 +699,7 @@ namespace Hl7.Cql.Runtime
 
                     do
                     {
-                        //var precision = UCUMUnits.FromDateTimePrecision(listItem!.Precision);
+                        var precision = UCUMUnits.FromDateTimePrecision(listItem!.Precision);
                         Units.DatePrecisionToCqlUnits.TryGetValue(listItem!.Precision.ToString(), out var cqlunits);
 
                         // high is one less than next grouping using the smallest precision of the interval

@@ -106,33 +106,30 @@ namespace Hl7.Cql.Primitives
             if (span.Equals(TimeSpan.MaxValue))
                 return null;
 
-            switch (quantity.unit[0])
+            switch (quantity.unit)
             {
-                case 'm':
-                    if (quantity.unit.Length > 1)
-                    {
-                        switch (quantity.unit[1])
-                        {
-                            case 'i':
-                                span = span.Add(TimeSpan.FromMinutes(Math.Truncate((double)value)));
-                                break;
-                            case 's':
-                                span = span.Add(TimeSpan.FromMilliseconds(Math.Truncate((double)value)));
-                                break;
-                            default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");
-                        }
-                    }
+                case "minute":
+                case "minutes":
+                    span = span.Add(TimeSpan.FromMinutes(Math.Truncate((double)value)));
                     break;
-                case 'd':
+                case "millisecond":
+                case "milliseconds":
+                    span = span.Add(TimeSpan.FromMilliseconds(Math.Truncate((double)value)));
+                    break;
+                case "day":
+                case "days":
                     span = span.Add(TimeSpan.FromDays(Math.Truncate((double)value)));
                     break;
-                case 'w':
+                case "week":
+                case "weeks":
                     span = span.Add(TimeSpan.FromDays(Math.Truncate((double)value) * CqlDateTimeMath.DaysPerWeekDouble));
                     break;
-                case 'h':
+                case "hour":
+                case "hours":
                     span = span.Add(TimeSpan.FromHours(Math.Truncate((double)value)));
                     break;
-                case 's':
+                case "second":
+                case "seconds":
                     span = span.Add(TimeSpan.FromSeconds(Math.Truncate((double)value)));
                     break;
                 default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");
@@ -160,33 +157,30 @@ namespace Hl7.Cql.Primitives
             if (span.Equals(TimeSpan.MinValue))
                 return null;
 
-            switch (quantity.unit[0])
+            switch (quantity.unit)
             {
-                case 'm':
-                    if (quantity.unit.Length > 1)
-                    {
-                        switch (quantity.unit[1])
-                        {
-                            case 'i':
-                                span = span.Subtract(TimeSpan.FromMinutes(Math.Truncate((double)value)));
-                                break;
-                            case 's':
-                                span = span.Subtract(TimeSpan.FromMilliseconds(Math.Truncate((double)value)));
-                                break;
-                            default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");
-                        }
-                    }
+                case "minute":
+                case "minutes":
+                    span = span.Subtract(TimeSpan.FromMinutes(Math.Truncate((double)value)));
                     break;
-                case 'd':
+                case "millisecond":
+                case "milliseconds":
+                    span = span.Subtract(TimeSpan.FromMilliseconds(Math.Truncate((double)value)));
+                    break;
+                case "day":
+                case "days":
                     span = span.Subtract(TimeSpan.FromDays(Math.Truncate((double)value)));
                     break;
-                case 'w':
+                case "week":
+                case "weeks":
                     span = span.Subtract(TimeSpan.FromDays(Math.Truncate((double)value) * CqlDateTimeMath.DaysPerWeekDouble));
                     break;
-                case 'h':
+                case "hour":
+                case "hours":
                     span = span.Subtract(TimeSpan.FromHours(Math.Truncate((double)value)));
                     break;
-                case 's':
+                case "second":
+                case "seconds":
                     span = span.Subtract(TimeSpan.FromSeconds(Math.Truncate((double)value)));
                     break;
                 default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");
