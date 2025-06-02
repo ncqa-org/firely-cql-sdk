@@ -99,8 +99,8 @@ namespace Hl7.Cql.Conversion
                 return null;
 
             string fromUnit = source.unit ?? "1";
-            if (Units.CqlUnitsToUCUM.TryGetValue(fromUnit, out var ucumUnit))
-                fromUnit = ucumUnit;
+/*            if (Units.CqlUnitsToUCUM.TryGetValue(fromUnit, out var ucumUnit))
+                fromUnit = ucumUnit;*/
 
             var newValue = ChangeUnits(source.value.Value, fromUnit, ucumUnits);
             var newQuanitty = new CqlQuantity(newValue, ucumUnits);

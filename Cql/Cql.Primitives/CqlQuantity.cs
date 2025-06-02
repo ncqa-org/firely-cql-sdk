@@ -8,6 +8,7 @@
 
 using Hl7.Cql.Abstractions;
 using System.Globalization;
+using System.Runtime.ConstrainedExecution;
 
 namespace Hl7.Cql.Primitives
 {
@@ -31,7 +32,8 @@ namespace Hl7.Cql.Primitives
         public CqlQuantity(decimal? value, string? unit)
         {
             this.value = value;
-            this.unit = unit != null && Units.CqlUnitsToUCUM.TryGetValue(unit, out var ucumUnits) ? ucumUnits : unit;
+            //this.unit = unit != null && Units.CqlUnitsToUCUM.TryGetValue(unit, out var ucumUnits) ? ucumUnits : unit;
+            this.unit = unit;
         }
 
         /// <summary>
@@ -52,10 +54,10 @@ namespace Hl7.Cql.Primitives
             if (value == null || unit == null)
                 return null;
             var unitString = unit;
-            if (Units.UCUMUnitsToCql.TryGetValue(unit, out var cqlUnit))
+/*            if (Units.UCUMUnitsToCql.TryGetValue(unit, out var cqlUnit))
             {
                 unitString = cqlUnit;
-            }
+            }*/
 
             return string.Create(CultureInfo.InvariantCulture, $"{value}{unitString}");
         }

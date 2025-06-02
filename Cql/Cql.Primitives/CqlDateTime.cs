@@ -155,39 +155,38 @@ namespace Hl7.Cql.Primitives
             if (dto.Equals(DateTimeOffset.MaxValue))
                 return null;
 
-            switch (quantity.unit[0])
+            switch (quantity.unit)
             {
-                case 'a':
+                case "year":
+                case "years":
                     dto = dto.AddYears((int)value);
                     break;
-                case 'm':
-                    if (quantity.unit.Length > 1)
-                    {
-                        switch (quantity.unit[1])
-                        {
-                            case 'o':
-                                dto = dto.AddMonths((int)value);
-                                break;
-                            case 'i':
-                                dto = dto.AddMinutes(Math.Truncate((double)value));
-                                break;
-                            case 's':
-                                dto = dto.AddMilliseconds(Math.Truncate((double)value));
-                                break;
-                            default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");
-                        }
-                    }
+                case "month":
+                case "months":
+                    dto = dto.AddMonths((int)value);
                     break;
-                case 'd':
+                case "minute":
+                case "minutes":
+                    dto = dto.AddMinutes(Math.Truncate((double)value));
+                    break;
+                case "millisecond":
+                case "milliseconds":
+                    dto = dto.AddMilliseconds(Math.Truncate((double)value));
+                    break;
+                case "day":
+                case "days":
                     dto = dto.AddDays((int)value!);
                     break;
-                case 'w':
+                case "week":
+                case "weeks":
                     dto = dto.AddDays((int)(value! * CqlDateTimeMath.DaysPerWeek));
                     break;
-                case 'h':
+                case "hour":
+                case "hours":
                     dto = dto.AddHours(Math.Truncate((double)value));
                     break;
-                case 's':
+                case "second":
+                case "seconds":
                     dto = dto.AddSeconds(Math.Truncate((double)value));
                     break;
                 default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");
@@ -215,39 +214,38 @@ namespace Hl7.Cql.Primitives
             if (dto.Equals(DateTimeOffset.MinValue))
                 return null;
 
-            switch (quantity.unit[0])
+            switch (quantity.unit)
             {
-                case 'a':
+                case "year":
+                case "years":
                     dto = dto.AddYears((int)value);
                     break;
-                case 'm':
-                    if (quantity.unit.Length > 1)
-                    {
-                        switch (quantity.unit[1])
-                        {
-                            case 'o':
-                                dto = dto.AddMonths((int)value);
-                                break;
-                            case 'i':
-                                dto = dto.AddMinutes(Math.Truncate((double)value));
-                                break;
-                            case 's':
-                                dto = dto.AddMilliseconds(Math.Truncate((double)value));
-                                break;
-                            default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");
-                        }
-                    }
+                case "month":
+                case "months":
+                    dto = dto.AddMonths((int)value);
                     break;
-                case 'd':
+                case "minute":
+                case "minutes":
+                    dto = dto.AddMinutes(Math.Truncate((double)value));
+                    break;
+                case "millisecond":
+                case "milliseconds":
+                    dto = dto.AddMilliseconds(Math.Truncate((double)value));
+                    break;
+                case "day":
+                case "days":
                     dto = dto.AddDays((int)value!);
                     break;
-                case 'w':
+                case "week":
+                case "weeks":
                     dto = dto.AddDays((int)(value! * CqlDateTimeMath.DaysPerWeek));
                     break;
-                case 'h':
+                case "hour":
+                case "hours":
                     dto = dto.AddHours(Math.Truncate((double)value));
                     break;
-                case 's':
+                case "second":
+                case "seconds":
                     dto = dto.AddSeconds(Math.Truncate((double)value));
                     break;
                 default: throw new ArgumentException($"Unknown date unit {quantity.unit} supplied");

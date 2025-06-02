@@ -55,5 +55,38 @@ namespace Hl7.Cql.Abstractions
             { UCUMUnits.Millisecond,    "millisecond" },
         };
 
+        /// <summary>
+        /// Maps CQL unit keywords (singular or plural) to their corresponding UCUM unit codes.
+        /// </summary>
+        /// <see href="https://www.hl7.org/fhir/valueset-ucum-units.html"/>
+        public static readonly IDictionary<string, string> DatePrecisionToCqlUnits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Year",           "year" },
+            { "Years",          "years" },
+            { "Month",          "month" },
+            { "Months",         "months" },
+            { "Day",            "day" },
+            { "Days",           "days" },
+            { "Week",           "week" },
+            { "Weeks",          "weeks" },
+            { "Hour",           "hour" },
+            { "Hours",          "hours" },
+            { "Minute",         "minute" },
+            { "Minutes",        "minutes" },
+            { "Second",         "second" },
+            { "Seconds",        "seconds" },
+            { "Millisecond",    "millisecond" },
+            { "Milliseconds",   "milliseconds" },
+        };
+
+        /// <summary>
+        /// Maps CQL unit keywords (singular or plural) to their corresponding UCUM unit codes.
+        /// </summary>
+        /// <see href="https://www.hl7.org/fhir/valueset-ucum-units.html"/>
+        public static readonly List<string> cqlDateTimeUnits = new List<string>
+        {
+            "year", "years", "month", "months", "days", "day", "week", "weeks", "hour", "hours", "minute", "minutes", "second", "seconds", "millisecond", "milliseconds"
+        };
+
     }
 }
