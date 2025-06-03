@@ -360,6 +360,9 @@ namespace Hl7.Cql.Runtime
             {
                 if (x == null || y == null) return null;
 
+                var x1 = meets(x, y, precision);
+                var x2 = OverlapsHelper(x, y, precision, toClosed);
+
                 // From spec language:
                 // In other words, adjacent intervals within a sorted list are merged if they either overlap or meet.
                 if ((meets(x, y, precision) ?? false) || (OverlapsHelper(x, y, precision, toClosed) ?? false))

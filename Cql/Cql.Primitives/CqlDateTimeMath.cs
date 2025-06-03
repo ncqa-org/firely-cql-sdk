@@ -218,13 +218,20 @@ namespace Hl7.Cql.Primitives
 
         internal static readonly IDictionary<DateTimePrecision, CqlQuantity> UnitDateTimeQuantity = new Dictionary<DateTimePrecision, CqlQuantity>
         {
-            { DateTimePrecision.Day, new CqlQuantity(1m, UCUMUnits.Day) },
+/*            { DateTimePrecision.Day, new CqlQuantity(1m, UCUMUnits.Day) },
             { DateTimePrecision.Hour, new CqlQuantity(1m, UCUMUnits.Hour) },
             { DateTimePrecision.Millisecond, new CqlQuantity(1m, UCUMUnits.Millisecond) },
             { DateTimePrecision.Minute, new CqlQuantity(1m, UCUMUnits.Minute) },
             { DateTimePrecision.Month, new CqlQuantity(1m, UCUMUnits.Month) },
             { DateTimePrecision.Second, new CqlQuantity(1m, UCUMUnits.Second) },
-            { DateTimePrecision.Year, new CqlQuantity(1m, UCUMUnits.Year) },
+            { DateTimePrecision.Year, new CqlQuantity(1m, UCUMUnits.Year) },*/
+            { DateTimePrecision.Day, new CqlQuantity(1m, "day") },
+            { DateTimePrecision.Hour, new CqlQuantity(1m, "hour") },
+            { DateTimePrecision.Millisecond, new CqlQuantity(1m, "millisecond") },
+            { DateTimePrecision.Minute, new CqlQuantity(1m, "minute") },
+            { DateTimePrecision.Month, new CqlQuantity(1m, "month") },
+            { DateTimePrecision.Second, new CqlQuantity(1m, "second") },
+            { DateTimePrecision.Year, new CqlQuantity(1m, "year") },
 
         };
     }
