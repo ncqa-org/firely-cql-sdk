@@ -1001,13 +1001,15 @@ namespace Hl7.Cql.Runtime
                 {
 /*                    Units.CqlUnitsToUCUM.TryGetValue(interval.low.Precision.ToString(), out var ucmunits);
                     per = new CqlQuantity(1, ucmunits);*/
-                    per = new CqlQuantity(1, interval.low.Precision.ToString());
+                    Units.DatePrecisionToCqlUnits.TryGetValue(interval.low.Precision.ToString(), out var cqlunits);
+                    per = new CqlQuantity(1, cqlunits);
                 }
                 else if (interval.low.Precision < interval.high.Precision)
                 {
 /*                    Units.CqlUnitsToUCUM.TryGetValue(interval.low.Precision.ToString(), out var ucmunits);
                     per = new CqlQuantity(1, ucmunits);*/
-                    per = new CqlQuantity(1, interval.low.Precision.ToString());
+                    Units.DatePrecisionToCqlUnits.TryGetValue(interval.low.Precision.ToString(), out var cqlunits);
+                    per = new CqlQuantity(1, cqlunits);
 
                     setHighPrecisionToPer = true;
                 }
@@ -1015,7 +1017,8 @@ namespace Hl7.Cql.Runtime
                 {
 /*                    Units.CqlUnitsToUCUM.TryGetValue(interval.high.Precision.ToString(), out var ucmunits);
                     per = new CqlQuantity(1, ucmunits);*/
-                    per = new CqlQuantity(1, interval.high.Precision.ToString());
+                    Units.DatePrecisionToCqlUnits.TryGetValue(interval.high.Precision.ToString(), out var cqlunits);
+                    per = new CqlQuantity(1, cqlunits);
 
                     setLowPrecisionToPer = true;
                 }

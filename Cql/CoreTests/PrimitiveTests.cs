@@ -1093,7 +1093,7 @@ namespace CoreTests
             var end = new CqlDateTime(2022, 1, 1, 0, 0, 6, 0, 0, 0);
 
             var interval = new CqlInterval<CqlDateTime>(start, end, true, true);
-            var quantity = new CqlQuantity(3, "secondd");
+            var quantity = new CqlQuantity(3, "second");
             var expected = new List<CqlDateTime>
             {
                 new CqlDateTime(2022,1,1,0,0,0,0,0,0),
