@@ -324,8 +324,8 @@ namespace Hl7.Cql.Operators
         bool? ListProperlyIncludesList<T>(IEnumerable<T>? left, IEnumerable<T> right);
         IEnumerable<T>? ListSkip<T>(IEnumerable<T> argument, int? number);
         IEnumerable<T>? ListSort<T>(IEnumerable<T>? source, ListSortDirection order);
-        IOrderedEnumerable<T>? ListSortBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection);
-        IOrderedEnumerable<T>? ListThenBy<T>(IOrderedEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection);
+        IEnumerable<T>? ListSortBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection);
+        IEnumerable<T>? ListThenBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection);
         IEnumerable<T>? ListTail<T>(IEnumerable<T> argument);
         IEnumerable<T>? ListTake<T>(IEnumerable<T> argument, int? number);
         IEnumerable<T>? ListUnion<T>(IEnumerable<T>? left, IEnumerable<T>? right);

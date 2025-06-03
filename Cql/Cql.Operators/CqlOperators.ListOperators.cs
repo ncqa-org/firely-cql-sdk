@@ -1218,7 +1218,7 @@ namespace Hl7.Cql.Runtime
             else throw new NotSupportedException($"Unknown sort order {order}");
         }
 
-        public IOrderedEnumerable<T>? ListSortBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
+        public IEnumerable<T>? ListSortBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
         {
             if (source == null)
                 return null;
@@ -1240,28 +1240,32 @@ namespace Hl7.Cql.Runtime
             else throw new NotSupportedException($"Unknown sort order {sortDirection}");
         }
 
-        public IOrderedEnumerable<T>? ListThenBy<T>(IOrderedEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
+        public IEnumerable<T>? ListThenBy<T>(IEnumerable<T>? source, Func<T, object> sortByExpr, ListSortDirection sortDirection)
         {
             if (source == null || sortByExpr == null)
                 return null;
 
-            // Nulls first, then by sortByExpr ascending
-            var nullOrdered = source.ThenBy(x => sortByExpr(x) == null ? 0 : 1);
+            if (source is IOrderedEnumerable<T> ordered)
+            {
+                // Nulls first, then by sortByExpr ascending
+                var nullOrdered = ordered.ThenBy(x => sortByExpr(x) == null ? 0 : 1);
 
-            if (sortDirection == ListSortDirection.Ascending)
-            {
-                return nullOrdered
-                    .ThenBy(sortByExpr, DataComparer);
+                if (sortDirection == ListSortDirection.Ascending)
+                {
+                    return nullOrdered
+                        .ThenBy(sortByExpr, DataComparer);
+                }
+                else if (sortDirection == ListSortDirection.Descending)
+                {
+                    return nullOrdered
+                        .ThenByDescending(sortByExpr, DataComparer); ;
+                }
+                else
+                {
+                    throw new NotSupportedException($"Unknown sort order {sortDirection}");
+                }
             }
-            else if (sortDirection == ListSortDirection.Descending)
-            {
-                return nullOrdered
-                    .ThenByDescending(sortByExpr, DataComparer); ;
-            }
-            else
-            {
-                throw new NotSupportedException($"Unknown sort order {sortDirection}");
-            }
+            else throw new InvalidOperationException("ThenBy was called at an unexpected time.");
         }
 
         #endregion
