@@ -198,8 +198,8 @@ namespace Hl7.Cql.Primitives
         /// <returns>The individual component at the specified precision, or <see langword="null"/> if this date is not expressed in those units.</returns>
         public int? Component(string precision)
         {
-            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                precision = converted;
+/*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
+                precision = converted;*/
             switch (precision)
             {
                 case UCUMUnits.Hour:
@@ -270,8 +270,8 @@ namespace Hl7.Cql.Primitives
                 dtp = (DateTimePrecision)Math.Max((byte)Value.Precision, (byte)other.Value.Precision);
             else
             {
-                if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                    precision = converted;
+/*                if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
+                    precision = converted;*/
                 dtp = precision.ToDateTimePrecision() ?? DateTimePrecision.Unknown;
             }
             if (dtp == DateTimePrecision.Unknown)

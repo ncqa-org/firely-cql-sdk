@@ -270,10 +270,10 @@ namespace Hl7.Cql.Primitives
                 dtp = (DateTimePrecision)Math.Max((byte)Value.Precision, (byte)other.Value.Precision);
             else
             {
-                if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                    precision = converted;
+/*                if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
+                    precision = converted;*/
                 // weeks isn't part of the precision enumeration
-                if (precision[0] == 'w')
+                if (precision == "week" || precision == "weeks")
                 {
                     var yearComparison = Compare(Value.Year, other.Value.Year);
                     if (yearComparison == 0)

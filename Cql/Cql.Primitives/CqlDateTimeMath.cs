@@ -33,20 +33,23 @@ namespace Hl7.Cql.Primitives
         {
             if (low == null || high == null || precision == null)
                 return null;
-            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                precision = converted;
+/*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
+                precision = converted;*/
 
             var firstDto = low.Value;
             var secondDto = high.Value;
             switch (precision)
             {
-                case "a":
+                case "year":
+                case "years":
                     var yearDiff = (secondDto.Year - firstDto.Year);
                     return yearDiff;
-                case "mo":
+                case "month":
+                case "months":
                     var monthDiff = (12 * (secondDto.Year - firstDto.Year) + secondDto.Month - firstDto.Month);
                     return monthDiff;
-                case "wk":
+                case "week":
+                case "weeks":
                     {
                         var span = secondDto.Subtract(firstDto);
                         var weeks = span.TotalDays / 7d;
@@ -57,7 +60,8 @@ namespace Hl7.Cql.Primitives
                             return asInt + 1;
                         else return asInt;
                     }
-                case "d":
+                case "day":
+                case "days":
                     {
                         var span = secondDto.Subtract(firstDto);
                         var asInt = (int)span.TotalDays;
@@ -69,7 +73,8 @@ namespace Hl7.Cql.Primitives
                         }
                         else return asInt;
                     }
-                case "h":
+                case "hour":
+                case "hours":
                     {
                         var span = secondDto.Subtract(firstDto);
                         var asInt = (int)span.TotalHours;
@@ -81,7 +86,8 @@ namespace Hl7.Cql.Primitives
                         }
                         else return asInt;
                     }
-                case "min":
+                case "minute":
+                case "minutes":
                     {
                         var span = secondDto.Subtract(firstDto);
                         var asInt = (int)span.TotalMinutes;
@@ -93,7 +99,8 @@ namespace Hl7.Cql.Primitives
                         }
                         else return asInt;
                     }
-                case "s":
+                case "second":
+                case "seconds":
                     {
                         var span = secondDto.Subtract(firstDto);
                         var asInt = (int)span.TotalSeconds;
@@ -105,7 +112,8 @@ namespace Hl7.Cql.Primitives
                         }
                         else return asInt;
                     }
-                case "ms":
+                case "millisecond":
+                case "milliseconds":
                     {
                         var span = secondDto.Subtract(firstDto);
                         var asInt = (int)span.TotalMilliseconds;
@@ -125,15 +133,16 @@ namespace Hl7.Cql.Primitives
         {
             if (low == null || high == null || precision == null)
                 return null;
-            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                precision = converted;
+/*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
+                precision = converted;*/
 
             var calendar = new GregorianCalendar();
             var firstDto = low.Value;
             var secondDto = high.Value;
             switch (precision)
             {
-                case "a":
+                case "year":
+                case "years":
                     var yearDiff = secondDto.Year - firstDto.Year;
                     var firstDayInYear = firstDto.DayOfYear;
                     var secondDayInYear = secondDto.DayOfYear;
@@ -199,20 +208,34 @@ namespace Hl7.Cql.Primitives
                     else if (yearDiff < 0 && firstDayInYear < secondDayInYear)
                         yearDiff += 1;
                     return yearDiff;
-                case "mo":
+                case "month":
+                case "months":
                     var monthDiff = (12 * (secondDto.Year - firstDto.Year) + secondDto.Month - firstDto.Month);
                     if (monthDiff > 0 && secondDto.Day < firstDto.Day)
                         monthDiff -= 1;
                     else if (monthDiff < 0 && firstDto.Day < secondDto.Day)
                         monthDiff += 1;
                     return monthDiff;
-                case "wk": return (int)(secondDto.Subtract(firstDto).TotalDays / DaysPerWeekDouble);
-                case "d": return (int)secondDto.Subtract(firstDto).TotalDays;
-                case "h": return (int)secondDto.Subtract(firstDto).TotalHours;
-                case "min": return (int)secondDto.Subtract(firstDto).TotalMinutes;
-                case "s": return (int)secondDto.Subtract(firstDto).TotalSeconds;
-                case "ms": return (int)secondDto.Subtract(firstDto).TotalMilliseconds;
-                default: throw new ArgumentException($"Unit {precision} is not supported");
+                case "week":
+                case "weeks": 
+                    return (int)(secondDto.Subtract(firstDto).TotalDays / DaysPerWeekDouble);
+                case "day":
+                case "days": 
+                    return (int)secondDto.Subtract(firstDto).TotalDays;
+                case "hour":
+                case "hours": 
+                    return (int)secondDto.Subtract(firstDto).TotalHours;
+                case "minute":
+                case "minutes": 
+                    return (int)secondDto.Subtract(firstDto).TotalMinutes;
+                case "second":
+                case "seconds": 
+                    return (int)secondDto.Subtract(firstDto).TotalSeconds;
+                case "millisecond":
+                case "milliseconds": 
+                    return (int)secondDto.Subtract(firstDto).TotalMilliseconds;
+                default: 
+                    throw new ArgumentException($"Unit {precision} is not supported");
             };
         }
 
