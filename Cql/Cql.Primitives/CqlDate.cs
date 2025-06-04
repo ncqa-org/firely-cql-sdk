@@ -222,11 +222,14 @@ namespace Hl7.Cql.Primitives
                 precision = converted;*/
             switch (precision)
             {
-                case UCUMUnits.Year:
+                case "year":
+                case "years":
                     return Value.Year;
-                case UCUMUnits.Month:
+                case "month":
+                case "months":
                     return Value.Month;
-                case UCUMUnits.Day:
+                case "day":
+                case "days":
                     return Value.Day;
                 default:
                     return null;

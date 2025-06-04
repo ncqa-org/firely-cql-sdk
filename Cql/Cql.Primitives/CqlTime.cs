@@ -202,13 +202,17 @@ namespace Hl7.Cql.Primitives
                 precision = converted;*/
             switch (precision)
             {
-                case UCUMUnits.Hour:
+                case "hour":
+                case "hours":
                     return Value.Hour;
-                case UCUMUnits.Minute:
+                case "minute":
+                case "minutes":
                     return Value.Minute;
-                case UCUMUnits.Second:
+                case "second":
+                case "seconds":
                     return Value.Second;
-                case UCUMUnits.Millisecond:
+                case "millisecond":
+                case "milliseconds":
                     return Value.Millisecond;
                 default:
                     return null;

@@ -263,23 +263,31 @@ namespace Hl7.Cql.Primitives
         /// <returns>The individual component at the specified precision, or <see langword="null"/> if this date is not expressed in those units.</returns>
         public int? Component(string precision)
         {
-/*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                precision = converted;*/
+            /*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
+                            precision = converted;*/
+
             switch (precision)
             {
-                case UCUMUnits.Year:
+                case "year":
+                case "years":
                     return Value.Year;
-                case UCUMUnits.Month:
+                case "month":
+                case "months":
                     return Value.Month;
-                case UCUMUnits.Day:
+                case "day":
+                case "days":
                     return Value.Day;
-                case UCUMUnits.Hour:
+                case "hour":
+                case "hours":
                     return Value.Hour;
-                case UCUMUnits.Minute:
+                case "minute":
+                case "minutes":
                     return Value.Minute;
-                case UCUMUnits.Second:
+                case "second":
+                case "seconds":
                     return Value.Second;
-                case UCUMUnits.Millisecond:
+                case "millisecond":
+                case "milliseconds":
                     return Value.Millisecond;
                 default:
                     return null;
