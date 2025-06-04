@@ -102,6 +102,10 @@ namespace Hl7.Cql.Primitives
 
             var value = quantity!.value.Value;
             var span = Value.TimeSpan;
+
+            if (span.Equals(TimeSpan.MaxValue))
+                return null;
+
             switch (quantity.unit[0])
             {
                 case 'm':
@@ -152,6 +156,10 @@ namespace Hl7.Cql.Primitives
 
             var value = quantity!.value.Value;
             var span = Value.TimeSpan;
+
+            if (span.Equals(TimeSpan.MinValue))
+                return null;
+
             switch (quantity.unit[0])
             {
                 case 'm':
