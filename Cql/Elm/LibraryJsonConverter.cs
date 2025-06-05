@@ -70,6 +70,7 @@ namespace Hl7.Cql.Elm
 
             foreach (var property in properties)
             {         
+                // Ignore partial class properties
                 if (property.Name == "Name" || property.Name == "Version" || property.Name == "NameAndVersion")
                     continue;
 
