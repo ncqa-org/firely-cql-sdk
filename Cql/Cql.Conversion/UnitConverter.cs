@@ -99,8 +99,6 @@ namespace Hl7.Cql.Conversion
                 return null;
 
             string fromUnit = source.unit ?? "1";
-/*            if (Units.CqlUnitsToUCUM.TryGetValue(fromUnit, out var ucumUnit))
-                fromUnit = ucumUnit;*/
 
             var newValue = ChangeUnits(source.value.Value, fromUnit, ucumUnits);
             var newQuanitty = new CqlQuantity(newValue, ucumUnits);
@@ -112,17 +110,17 @@ namespace Hl7.Cql.Conversion
         /// </summary>
         public UnitConverter()
         {
-            InitialzeDateConversions();
+            //InitialzeDateConversions();
             InitializeLengthUnits();
         }
 
-        private void InitialzeDateConversions()
+/*        private void InitialzeDateConversions()
         {
             var year = new Dictionary<string, Func<decimal, decimal>>
             {
                 {  UCUMUnits.Day, (decimal value) => value * ConversionConstants.DaysPerYear },
                 {  UCUMUnits.Month, (decimal value) => value / 12m },
-                {  UCUMUnits.Week, (decimal value) => (value* ConversionConstants.DaysPerYear) * 0.14285714285m /* 1/7 */ },
+                {  UCUMUnits.Week, (decimal value) => (value* ConversionConstants.DaysPerYear) * 0.14285714285m *//* 1/7 *//* },
             };
             Conversions.Add(UCUMUnits.Year, year);
 
@@ -130,7 +128,7 @@ namespace Hl7.Cql.Conversion
             {
                 {  UCUMUnits.Day, (decimal value) => value * ConversionConstants.DaysPerMonth },
                 {  UCUMUnits.Year, (decimal value) => value * 12m },
-                {  UCUMUnits.Week, (decimal value) => (value * ConversionConstants.DaysPerMonth) * 0.14285714285m /* 1/7 */ },
+                {  UCUMUnits.Week, (decimal value) => (value * ConversionConstants.DaysPerMonth) * 0.14285714285m *//* 1/7 *//* },
             };
             Conversions.Add(UCUMUnits.Month, month);
 
@@ -138,7 +136,7 @@ namespace Hl7.Cql.Conversion
             {
                 {  UCUMUnits.Month, (decimal value) => value * ConversionConstants.MonthsPerDay },
                 {  UCUMUnits.Year, (decimal value) => value * ConversionConstants.YearsPerDay },
-                {  UCUMUnits.Week, (decimal value) => value * 0.14285714285m /* 1/7 */ },
+                {  UCUMUnits.Week, (decimal value) => value * 0.14285714285m *//* 1/7 *//* },
             };
             Conversions.Add(UCUMUnits.Day, day);
 
@@ -150,7 +148,7 @@ namespace Hl7.Cql.Conversion
             };
             Conversions.Add(UCUMUnits.Week, week);
 
-        }
+        }*/
         private void InitializeLengthUnits()
         {
             var inches = new Dictionary<string, Func<decimal, decimal>>

@@ -11,11 +11,11 @@ namespace Hl7.Cql.Iso8601
 {
     public static class DateTimePrecisionExtensions
     {
-        public static DateTimePrecision? ToDateTimePrecision(this string? ucumUnit)
+        public static DateTimePrecision? ToDateTimePrecision(this string? unit)
         {
-            if (ucumUnit == null)
+            if (unit == null)
                 return null;
-            else switch (ucumUnit)
+            else switch (unit)
                 {
                     case "year":
                     case "years":

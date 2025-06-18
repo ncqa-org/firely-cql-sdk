@@ -3113,11 +3113,11 @@ namespace CoreTests
             {
                 new CqlInterval<CqlTime>(start, end, true, true)
             };
-            var quantity = new CqlQuantity(2, "years");
+            var perQuantity = new CqlQuantity(2, "year");
 
             var rc = GetNewContext(); var fcq = rc.Operators;
 
-            var expand = fcq.ExpandList(interval, quantity);
+            var expand = fcq.ExpandList(interval, perQuantity);
             Assert.IsNotNull(expand);
             Assert.IsTrue(expand.Count() == 0);
         }

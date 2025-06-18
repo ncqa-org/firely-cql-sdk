@@ -273,8 +273,6 @@ namespace Hl7.Cql.Primitives
                 dtp = (DateTimePrecision)Math.Max((byte)Value.Precision, (byte)other.Value.Precision);
             else
             {
-/*                if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                    precision = converted;*/
                 // weeks isn't part of the precision enumeration
                 if (precision == "week" || precision == "weeks")
                 {
@@ -299,7 +297,7 @@ namespace Hl7.Cql.Primitives
                 dtp = precision.ToDateTimePrecision() ?? DateTimePrecision.Unknown;
             }
             if (dtp == DateTimePrecision.Unknown)
-                throw new ArgumentException($"Invalid UCUM precision {precision}", nameof(precision));
+                throw new ArgumentException($"Invalid precision {precision}", nameof(precision));
             switch (dtp)
             {
                 case DateTimePrecision.Year:
@@ -335,7 +333,7 @@ namespace Hl7.Cql.Primitives
                 case DateTimePrecision.Millisecond:
                 case DateTimePrecision.Unknown:
                 default:
-                    throw new ArgumentException($"Invalid UCUM precision {precision}", nameof(precision));
+                    throw new ArgumentException($"Invalid precision {precision}", nameof(precision));
             }
         }
 
