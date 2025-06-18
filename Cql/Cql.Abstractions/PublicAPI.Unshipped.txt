@@ -3,20 +3,12 @@ abstract Hl7.Cql.Abstractions.TypeResolver.GetListElementType(System.Type! type,
 abstract Hl7.Cql.Abstractions.TypeResolver.ImplementsGenericInterface(System.Type! type, System.Type! genericInterfaceTypeDefinition) -> bool
 abstract Hl7.Cql.Abstractions.TypeResolver.ResolveType(string! typeSpecifier) -> System.Type?
 const Hl7.Cql.Abstractions.UCUMUnits.Centimeter = "cm" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Day = "d" -> string!
 const Hl7.Cql.Abstractions.UCUMUnits.Default = "1" -> string!
 const Hl7.Cql.Abstractions.UCUMUnits.Foot = "[ft_i]" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Hour = "h" -> string!
 const Hl7.Cql.Abstractions.UCUMUnits.Inch = "[in_i]" -> string!
 const Hl7.Cql.Abstractions.UCUMUnits.Meter = "m" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Millisecond = "ms" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Minute = "min" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Month = "mo" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Second = "s" -> string!
 const Hl7.Cql.Abstractions.UCUMUnits.Unary = "1" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Week = "wk" -> string!
 const Hl7.Cql.Abstractions.UCUMUnits.Yard = "[yd_i]" -> string!
-#const Hl7.Cql.Abstractions.UCUMUnits.Year = "a" -> string!
 Hl7.Cql.Abstractions.CqlDeclarationAttribute
 Hl7.Cql.Abstractions.CqlDeclarationAttribute.CqlDeclarationAttribute(string! Name) -> void
 Hl7.Cql.Abstractions.CqlDeclarationAttribute.Name.get -> string!
@@ -51,6 +43,3 @@ Hl7.Cql.Abstractions.TypeResolver
 Hl7.Cql.Abstractions.TypeResolver.TypeResolver() -> void
 Hl7.Cql.Abstractions.UCUMUnits
 Hl7.Cql.Abstractions.Units
-static Hl7.Cql.Abstractions.UCUMUnits.FromDateTimePrecision(Hl7.Cql.Iso8601.DateTimePrecision dtp) -> string?
-#static readonly Hl7.Cql.Abstractions.Units.CqlUnitsToUCUM -> System.Collections.Generic.IDictionary<string!, string!>!
-#static readonly Hl7.Cql.Abstractions.Units.UCUMUnitsToCql -> System.Collections.Generic.IDictionary<string!, string!>!

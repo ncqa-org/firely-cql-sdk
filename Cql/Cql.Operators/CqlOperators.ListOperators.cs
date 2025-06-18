@@ -704,7 +704,7 @@ namespace Hl7.Cql.Runtime
                     else
                     {
                         // If the per quantity is a datetime, bypass the expansion of input interval of type decimal
-                        if (per.unit is not null && Units.CqlDateTimeUnits.Contains(per.unit))
+                        if (per.unit is not null && Units.DatePrecisionToCqlUnits.Values.Contains(per.unit))
                             continue;
                     }
 
@@ -750,7 +750,7 @@ namespace Hl7.Cql.Runtime
                     else
                     {
                         // If the per quantity is a datetime, bypass the expansion of input interval of type integer
-                        if (per.unit is not null && Units.CqlDateTimeUnits.Contains(per.unit))
+                        if (per.unit is not null && Units.DatePrecisionToCqlUnits.Values.Contains(per.unit))
                             continue;
                     }
 
@@ -798,7 +798,7 @@ namespace Hl7.Cql.Runtime
                     else
                     {
                         // If the per quantity is a datetime, bypass the expansion of input interval of type long
-                        if (per.unit is not null && Units.CqlDateTimeUnits.Contains(per.unit))
+                        if (per.unit is not null && Units.DatePrecisionToCqlUnits.Values.Contains(per.unit))
                             continue;
                     }
 

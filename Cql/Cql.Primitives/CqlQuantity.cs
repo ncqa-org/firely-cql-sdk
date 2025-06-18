@@ -28,11 +28,10 @@ namespace Hl7.Cql.Primitives
         /// Creates an instance.
         /// </summary>
         /// <param name="value">The value of this quantity.</param>
-        /// <param name="unit">The UCUM units of this quantity.</param>
+        /// <param name="unit">The units of this quantity.</param>
         public CqlQuantity(decimal? value, string? unit)
         {
             this.value = value;
-            //this.unit = unit != null && Units.CqlUnitsToUCUM.TryGetValue(unit, out var ucumUnits) ? ucumUnits : unit;
             this.unit = unit;
         }
 
@@ -42,7 +41,7 @@ namespace Hl7.Cql.Primitives
         public decimal? value { get; init; }
 
         /// <summary>
-        /// The UCUM units of this quantity.
+        /// The units of this quantity.
         /// </summary>
         public string? unit { get; init;  }
 
@@ -54,10 +53,6 @@ namespace Hl7.Cql.Primitives
             if (value == null || unit == null)
                 return null;
             var unitString = unit;
-/*            if (Units.UCUMUnitsToCql.TryGetValue(unit, out var cqlUnit))
-            {
-                unitString = cqlUnit;
-            }*/
 
             return string.Create(CultureInfo.InvariantCulture, $"{value}{unitString}");
         }

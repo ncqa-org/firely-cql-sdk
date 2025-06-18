@@ -194,25 +194,19 @@ namespace Hl7.Cql.Primitives
         /// <summary>
         /// Gets the component of this time.
         /// </summary>
-        /// <param name="precision">The CQL or UCUM unit precision.</param>
+        /// <param name="precision">The CQL unit precision.</param>
         /// <returns>The individual component at the specified precision, or <see langword="null"/> if this date is not expressed in those units.</returns>
         public int? Component(string precision)
         {
-/*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                precision = converted;*/
             switch (precision)
             {
                 case "hour":
-                case "hours":
                     return Value.Hour;
                 case "minute":
-                case "minutes":
                     return Value.Minute;
                 case "second":
-                case "seconds":
                     return Value.Second;
                 case "millisecond":
-                case "milliseconds":
                     return Value.Millisecond;
                 default:
                     return null;
@@ -274,12 +268,10 @@ namespace Hl7.Cql.Primitives
                 dtp = (DateTimePrecision)Math.Max((byte)Value.Precision, (byte)other.Value.Precision);
             else
             {
-/*                if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                    precision = converted;*/
                 dtp = precision.ToDateTimePrecision() ?? DateTimePrecision.Unknown;
             }
             if (dtp == DateTimePrecision.Unknown)
-                throw new ArgumentException($"Invalid UCUM precision {precision}", nameof(precision));
+                throw new ArgumentException($"Invalid precision {precision}", nameof(precision));
             switch (dtp)
             {
 
@@ -368,7 +360,7 @@ namespace Hl7.Cql.Primitives
                 case DateTimePrecision.Month:
                 case DateTimePrecision.Day:
                 default:
-                    throw new ArgumentException($"Invalid UCUM precision {precision}", nameof(precision));
+                    throw new ArgumentException($"Invalid precision {precision}", nameof(precision));
             }
         }
 

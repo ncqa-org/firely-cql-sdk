@@ -1234,11 +1234,11 @@ namespace CoreTests
             var end = new CqlTime(12, null, null, null, null, null);
 
             var interval = new CqlInterval<CqlTime>(start, end, true, true);
-            var quantity = new CqlQuantity(2, "years");
+            var perQuantity = new CqlQuantity(2, "year");
 
             var rc = GetNewContext(); var fcq = rc.Operators;
 
-            var expand = fcq.ExpandInterval(interval, quantity);
+            var expand = fcq.ExpandInterval(interval, perQuantity);
             Assert.IsNotNull(expand);
             Assert.IsTrue(expand.Count() == 0);
         }

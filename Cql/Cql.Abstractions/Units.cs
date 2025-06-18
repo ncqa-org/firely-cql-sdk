@@ -12,12 +12,12 @@ using System.Collections.Generic;
 namespace Hl7.Cql.Abstractions
 {
     /// <summary>
-    /// Utilities for converting between CQL and UCUM units.
+    /// Utilities for converting precision to cql units
     /// </summary>
     public static class Units
     {
         /// <summary>
-        /// Maps CQL unit keywords (singular or plural) to their corresponding UCUM unit codes.
+        /// Maps DateTime Precisions to their corresponding CQL units.
         /// </summary>
         /// <see href="https://www.hl7.org/fhir/valueset-ucum-units.html"/>
         public static readonly IDictionary<string, string> DatePrecisionToCqlUnits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -30,16 +30,6 @@ namespace Hl7.Cql.Abstractions
             { "Minute",         "minute" },
             { "Second",         "second" },
             { "Millisecond",    "millisecond" }
-        };
-        
-
-        /// <summary>
-        /// Maps CQL unit keywords (singular or plural) to their corresponding UCUM unit codes.
-        /// </summary>
-        /// <see href="https://www.hl7.org/fhir/valueset-ucum-units.html"/>
-        public static readonly List<string> CqlDateTimeUnits = new List<string>
-        {
-            "year", "years", "month", "months", "days", "day", "week", "weeks", "hour", "hours", "minute", "minutes", "second", "seconds", "millisecond", "milliseconds"
         };
 
     }

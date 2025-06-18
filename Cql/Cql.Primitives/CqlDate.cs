@@ -214,22 +214,17 @@ namespace Hl7.Cql.Primitives
         /// <summary>
         /// Gets the component of this date.
         /// </summary>
-        /// <param name="precision">The CQL or UCUM unit precision.</param>
+        /// <param name="precision">The CQL unit precision.</param>
         /// <returns>The individual component at the specified precision, or <see langword="null"/> if this date is not expressed in those units.</returns>
         public int? Component(string precision)
         {
-/*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                precision = converted;*/
             switch (precision)
             {
                 case "year":
-                case "years":
                     return Value.Year;
                 case "month":
-                case "months":
                     return Value.Month;
                 case "day":
-                case "days":
                     return Value.Day;
                 default:
                     return null;

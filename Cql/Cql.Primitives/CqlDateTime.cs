@@ -259,35 +259,25 @@ namespace Hl7.Cql.Primitives
         /// <summary>
         /// Gets the component of this date time.
         /// </summary>
-        /// <param name="precision">The CQL or UCUM unit precision.</param>
+        /// <param name="precision">The CQL unit precision.</param>
         /// <returns>The individual component at the specified precision, or <see langword="null"/> if this date is not expressed in those units.</returns>
         public int? Component(string precision)
         {
-            /*            if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                            precision = converted;*/
-
             switch (precision)
             {
                 case "year":
-                case "years":
                     return Value.Year;
                 case "month":
-                case "months":
                     return Value.Month;
                 case "day":
-                case "days":
                     return Value.Day;
                 case "hour":
-                case "hours":
                     return Value.Hour;
                 case "minute":
-                case "minutes":
                     return Value.Minute;
                 case "second":
-                case "seconds":
                     return Value.Second;
                 case "millisecond":
-                case "milliseconds":
                     return Value.Millisecond;
                 default:
                     return null;
@@ -351,8 +341,6 @@ namespace Hl7.Cql.Primitives
                 dtp = (DateTimePrecision)Math.Max((byte)Value.Precision, (byte)other.Value.Precision);
             else
             {
-/*                if (Units.CqlUnitsToUCUM.TryGetValue(precision, out var converted))
-                    precision = converted;*/
                 // weeks isn't part of the precision enumeration
                 if (precision == "week" || precision == "weeks")
                 {
@@ -377,12 +365,12 @@ namespace Hl7.Cql.Primitives
                 dtp = precision.ToDateTimePrecision() ?? DateTimePrecision.Unknown;
             }
             if (dtp == DateTimePrecision.Unknown)
-                throw new ArgumentException($"Invalid UCUM precision {precision}", nameof(precision));
+                throw new ArgumentException($"Invalid precision {precision}", nameof(precision));
             switch (dtp)
             {
                 default:
                 case DateTimePrecision.Unknown:
-                    throw new ArgumentException($"Invalid UCUM precision {precision}", nameof(precision));
+                    throw new ArgumentException($"Invalid precision {precision}", nameof(precision));
                 case DateTimePrecision.Year:
                     return Compare(Value.Year, other.Value.Year);
                 case DateTimePrecision.Month:
