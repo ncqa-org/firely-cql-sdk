@@ -19,7 +19,6 @@ namespace Hl7.Cql.Abstractions
         /// <summary>
         /// Maps DateTime Precisions to their corresponding CQL units.
         /// </summary>
-        /// <see href="https://www.hl7.org/fhir/valueset-ucum-units.html"/>
         public static readonly IDictionary<string, string> DatePrecisionToCqlUnits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "Year",           "year" },

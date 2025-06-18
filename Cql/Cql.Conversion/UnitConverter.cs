@@ -110,45 +110,9 @@ namespace Hl7.Cql.Conversion
         /// </summary>
         public UnitConverter()
         {
-            //InitialzeDateConversions();
             InitializeLengthUnits();
         }
 
-/*        private void InitialzeDateConversions()
-        {
-            var year = new Dictionary<string, Func<decimal, decimal>>
-            {
-                {  UCUMUnits.Day, (decimal value) => value * ConversionConstants.DaysPerYear },
-                {  UCUMUnits.Month, (decimal value) => value / 12m },
-                {  UCUMUnits.Week, (decimal value) => (value* ConversionConstants.DaysPerYear) * 0.14285714285m *//* 1/7 *//* },
-            };
-            Conversions.Add(UCUMUnits.Year, year);
-
-            var month = new Dictionary<string, Func<decimal, decimal>>
-            {
-                {  UCUMUnits.Day, (decimal value) => value * ConversionConstants.DaysPerMonth },
-                {  UCUMUnits.Year, (decimal value) => value * 12m },
-                {  UCUMUnits.Week, (decimal value) => (value * ConversionConstants.DaysPerMonth) * 0.14285714285m *//* 1/7 *//* },
-            };
-            Conversions.Add(UCUMUnits.Month, month);
-
-            var day = new Dictionary<string, Func<decimal, decimal>>
-            {
-                {  UCUMUnits.Month, (decimal value) => value * ConversionConstants.MonthsPerDay },
-                {  UCUMUnits.Year, (decimal value) => value * ConversionConstants.YearsPerDay },
-                {  UCUMUnits.Week, (decimal value) => value * 0.14285714285m *//* 1/7 *//* },
-            };
-            Conversions.Add(UCUMUnits.Day, day);
-
-            var week = new Dictionary<string, Func<decimal, decimal>>
-            {
-                {  UCUMUnits.Day, (decimal value) => value * 7m },
-                {  UCUMUnits.Month, (decimal value) => value * 7m * ConversionConstants.MonthsPerDay },
-                {  UCUMUnits.Year, (decimal value) => value * 7m * ConversionConstants.YearsPerDay },
-            };
-            Conversions.Add(UCUMUnits.Week, week);
-
-        }*/
         private void InitializeLengthUnits()
         {
             var inches = new Dictionary<string, Func<decimal, decimal>>
