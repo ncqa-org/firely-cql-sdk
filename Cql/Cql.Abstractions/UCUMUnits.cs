@@ -28,6 +28,38 @@ namespace Hl7.Cql.Abstractions
         public const string Unary = "1";
 
         /// <summary>
+        /// Years (annos in Latin).
+        /// </summary>
+        public const string Year = "a";
+        /// <summary>
+        /// Months
+        /// </summary>
+        public const string Month = "mo";
+        /// <summary>
+        /// Days
+        /// </summary>
+        public const string Day = "d";
+        /// <summary>
+        /// Hours
+        /// </summary>
+        public const string Hour = "h";
+        /// <summary>
+        /// Minutes
+        /// </summary>
+        public const string Minute = "min";
+        /// <summary>
+        /// Seconds
+        /// </summary>
+        public const string Second = "s";
+        /// <summary>
+        /// Milliseconds
+        /// </summary>
+        public const string Millisecond = "ms";
+        /// <summary>
+        /// Weeks, equal to 7 <see cref="Day"/>.
+        /// </summary>
+        public const string Week = "wk";
+        /// <summary>
         /// Imperial inches
         /// </summary>
         public const string Inch = "[in_i]";
