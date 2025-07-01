@@ -7,6 +7,7 @@
  */
 
 using Hl7.Cql.Abstractions;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.ConstrainedExecution;
 
@@ -30,9 +31,14 @@ namespace Hl7.Cql.Primitives
         /// <param name="value">The value of this quantity.</param>
         /// <param name="unit">The units of this quantity.</param>
         public CqlQuantity(decimal? value, string? unit)
-        {
-            this.value = value;
-            this.unit = unit;
+        {   
+            if (unit != null && !UCUMUnits.DateTimeUnits.Contains(unit))
+            {
+                this.value = value;
+                this.unit = unit;
+            }
+            else
+                this.value = value;
         }
 
         /// <summary>

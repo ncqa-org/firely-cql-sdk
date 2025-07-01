@@ -7,6 +7,7 @@
  */
 
 using Hl7.Cql.Iso8601;
+using System.Collections.Generic;
 
 namespace Hl7.Cql.Abstractions
 {
@@ -79,6 +80,13 @@ namespace Hl7.Cql.Abstractions
         /// Centimeters
         /// </summary>
         public const string Centimeter = "cm";
+        /// <summary>
+        /// List of UCUM units commonly used for date and time intervals.
+        /// </summary>
+        public static readonly List<string> DateTimeUnits = new List<string>
+        {
+            Year, Month, Day, Hour, Minute, Second, Millisecond
+        };
     }
 
 
