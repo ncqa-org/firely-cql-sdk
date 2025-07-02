@@ -83,7 +83,7 @@ namespace Hl7.Cql.Abstractions
         /// <summary>
         /// List of UCUM units commonly used for date and time intervals.
         /// </summary>
-        public static readonly List<string> DateTimeUnits = new List<string>
+        public static readonly HashSet<string> DateTimeUnits = new HashSet<string>
         {
             Year, Month, Day, Hour, Minute, Second, Millisecond
         };
