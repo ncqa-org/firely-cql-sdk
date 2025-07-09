@@ -1093,7 +1093,7 @@ namespace CoreTests
             var end = new CqlDateTime(2022, 1, 1, 0, 0, 6, 0, 0, 0);
 
             var interval = new CqlInterval<CqlDateTime>(start, end, true, true);
-            var quantity = new CqlQuantity(3, "secondd");
+            var quantity = new CqlQuantity(3, "second");
             var expected = new List<CqlDateTime>
             {
                 new CqlDateTime(2022,1,1,0,0,0,0,0,0),
@@ -1234,11 +1234,11 @@ namespace CoreTests
             var end = new CqlTime(12, null, null, null, null, null);
 
             var interval = new CqlInterval<CqlTime>(start, end, true, true);
-            var quantity = new CqlQuantity(2, "years");
+            var perQuantity = new CqlQuantity(2, "year");
 
             var rc = GetNewContext(); var fcq = rc.Operators;
 
-            var expand = fcq.ExpandInterval(interval, quantity);
+            var expand = fcq.ExpandInterval(interval, perQuantity);
             Assert.IsNotNull(expand);
             Assert.IsTrue(expand.Count() == 0);
         }
@@ -3113,11 +3113,11 @@ namespace CoreTests
             {
                 new CqlInterval<CqlTime>(start, end, true, true)
             };
-            var quantity = new CqlQuantity(2, "years");
+            var perQuantity = new CqlQuantity(2, "year");
 
             var rc = GetNewContext(); var fcq = rc.Operators;
 
-            var expand = fcq.ExpandList(interval, quantity);
+            var expand = fcq.ExpandList(interval, perQuantity);
             Assert.IsNotNull(expand);
             Assert.IsTrue(expand.Count() == 0);
         }

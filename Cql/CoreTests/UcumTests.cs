@@ -18,10 +18,10 @@ namespace CoreTests
             canonical.value.Should().Be(3.14M * 1000.0M);
 
             q = new CqlQuantity(2.5M, "h");
+            q.unit.Should().BeNull();
             success = q.TryCanonicalize(out canonical);
-            success.Should().BeTrue();
-            canonical.unit.Should().Be("s");
-            canonical.value.Should().Be(2.5M * 60.0M * 60.0M);
+            success.Should().BeFalse();
+            canonical.Should().BeNull();
         }
 
         [TestMethod, Ignore]

@@ -15,7 +15,7 @@ using System;
 namespace Hl7.Cql.Comparers
 {
     /// <summary>
-    /// A comparer that compares to <see cref="CqlQuantity"/> instances, possibly by normalizing their values 
+    /// A comparer that compares two <see cref="CqlQuantity"/> instances, possibly by normalizing their values 
     /// using the UCUM system.
     /// </summary>
     internal class CqlQuantityCqlComparer : ICqlComparer<CqlQuantity>, ICqlComparer
