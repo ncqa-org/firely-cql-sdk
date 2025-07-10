@@ -20,12 +20,12 @@ namespace Hl7.Cql.Runtime
         /// <summary>
         /// Contains all definitions required during execution.
         /// </summary>
-        public DefinitionDictionary<Delegate> Definitions { get; }
+        public DefinitionDictionary<Delegate> Definitions { get; set; }
 
         /// <summary>
         /// Gets the implementation of <see cref="ICqlOperators"/> this execution uses.
         /// </summary>
-        public ICqlOperators Operators { get; }
+        public ICqlOperators Operators { get; set; }
 
         /// <summary>
         /// Gets the values of library parameters for this execution.
@@ -36,7 +36,7 @@ namespace Hl7.Cql.Runtime
         /// To scope a parameter globally, omit the library name and version.  If two libraries define the same parameter name but use different types, runtime errors will occur.
         /// If the value provided for a given parameter name is the incorrect type, a runtime error will occur.
         /// </remarks>
-        public IDictionary<string, object> Parameters { get; }
+        public IDictionary<string, object> Parameters { get; set; }
 
         /// <summary>
         /// Creates an instance.
@@ -44,13 +44,23 @@ namespace Hl7.Cql.Runtime
         /// <param name="operators">The <see cref="ICqlOperators"/> implementation to use.</param>
         /// <param name="parameters">The input parameters, or <see langword="null"/>. </param>
         /// <param name="delegates">The delegates, or <see langword="null"/>.  If <see langword="null"/>, runtime errors will occur when CQL expressions attempt to reference other definitions.</param>
-        protected internal CqlContext(ICqlOperators operators,
+        public CqlContext(ICqlOperators operators,
             IDictionary<string, object>? parameters = null,
             DefinitionDictionary<Delegate>? delegates = null)
         {
             Operators = operators;
             Definitions = delegates ?? new DefinitionDictionary<Delegate>();
             Parameters = parameters ?? new Dictionary<string, object>();
+        }
+
+        /// <summary>
+        /// Creates an instance.
+        /// </summary>
+        public CqlContext(CqlContext context)
+        {
+            Operators = context.Operators;
+            Definitions = context.Definitions;
+            Parameters = context.Parameters;
         }
 
         /// <summary>

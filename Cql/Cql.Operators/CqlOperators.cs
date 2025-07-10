@@ -102,7 +102,7 @@ namespace Hl7.Cql.Runtime
         /// <summary>
         /// Gets the implementation of <see cref="IDataSource"/> used to implement retrieve methods.
         /// </summary>
-        public IDataSource DataSource { get; }
+        public IDataSource DataSource { get; set; }
         public CqlDateTime NowValue { get; }
 
         internal IEqualityComparer<object> EqualityComparer { get; private set; }
