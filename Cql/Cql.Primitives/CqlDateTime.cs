@@ -158,14 +158,14 @@ namespace Hl7.Cql.Primitives
             switch (quantity.unit)
             {
                 case "a":
-                    dto = dto.AddDays(365.25d);
+                    dto = dto.AddDays(UCUMUnits.DaysPerYearDouble);
                     break;
                 case "year":
                 case "years":
                     dto = dto.AddYears((int)value);
                     break;
                 case "mo":
-                    dto = dto.AddDays(30.4375d);
+                    dto = dto.AddDays(UCUMUnits.DaysPerMonthDouble);
                     break;
                 case "month":
                 case "months":
@@ -230,14 +230,14 @@ namespace Hl7.Cql.Primitives
             switch (quantity.unit)
             {
                 case "a":
-                    dto = dto.AddDays(-365.25d);
+                    dto = dto.AddDays(-1 * UCUMUnits.DaysPerYearDouble);
                     break;
                 case "year":
                 case "years":
                     dto = dto.AddYears((int)value);
                     break;
                 case "mo":
-                    dto = dto.AddDays(-30.4375d);
+                    dto = dto.AddDays(-1 * UCUMUnits.DaysPerMonthDouble);
                     break;
                 case "month":
                 case "months":

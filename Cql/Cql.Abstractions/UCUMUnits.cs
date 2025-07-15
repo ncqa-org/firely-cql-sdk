@@ -80,7 +80,14 @@ namespace Hl7.Cql.Abstractions
         /// Centimeters
         /// </summary>
         public const string Centimeter = "cm";
+        /// <summary>
+        /// Defines days per year
+        /// </summary>
+        public const double DaysPerYearDouble = 365.25d;
+        /// <summary>
+        /// Defines days per month
+        /// </summary>        
+        public const double DaysPerMonthDouble = 30.4375d;
     }
-
 
 }
