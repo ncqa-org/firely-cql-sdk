@@ -102,6 +102,10 @@ namespace CoreTests
             Assert.IsNull(plus2pt5Months.Value.Hour);
             Assert.AreEqual("2022-03-01", plus2pt5Months.ToString());
 
+            var plus1UcumMonth = baseDate.Add(new CqlQuantity(1m, "mo"));
+            Assert.AreEqual(DateTimePrecision.Day, plus1UcumMonth.Value.Precision);
+            Assert.IsNull(plus1UcumMonth.Value.Hour);
+            Assert.AreEqual("2022-02-01", plus1UcumMonth.ToString());
         }
 
         [TestMethod]
