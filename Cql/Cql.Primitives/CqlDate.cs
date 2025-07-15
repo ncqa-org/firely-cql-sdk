@@ -105,57 +105,45 @@ namespace Hl7.Cql.Primitives
             switch (quantity.unit)
             {
                 case "a":
-                    //add ucum math for AddYears
+                    dto = dto.AddDays(365.25d);
                     break;
                 case "year":
                 case "years":
                     dto = dto.AddYears((int)value);
                     break;
                 case "mo":
-                    //add ucum math for AddMonths
+                    dto = dto.AddDays(30.4375d);
                     break;
                 case "month":
                 case "months":
                     dto = dto.AddMonths((int)value);
                     break;
                 case "wk":
-                    //add ucum math for AddWeeks
-                    break;
                 case "week":
                 case "weeks":
                     dto = dto.AddDays((int)(value! * CqlDateTimeMath.DaysPerWeek));
                     break;
                 case "d":
-                    //add ucum math for AddDays
-                    break;
                 case "day":
                 case "days":
                     dto = dto.AddDays((int)value!);
                     break;
                 case "h":
-                    //add ucum math for AddHours
-                    break;
                 case "hour":
                 case "hours":
                     dto = dto.AddHours(Math.Truncate((double)value));
                     break;
                 case "mi":
-                    //add ucum math for AddMinutes
-                    break;
                 case "minute":
                 case "minutes":
                     dto = dto.AddMinutes(Math.Truncate((double)value));
                     break;
                 case "s":
-                    //add ucum math for AddSeconds
-                    break;
                 case "second":
                 case "seconds":
                     dto = dto.AddSeconds(Math.Truncate((double)value));
                     break;
                 case "ms":
-                    //add ucum math for AddMilliseconds
-                    break;
                 case "millisecond":
                 case "milliseconds":
                     dto = dto.AddMilliseconds(Math.Truncate((double)value));
@@ -191,57 +179,45 @@ namespace Hl7.Cql.Primitives
                 switch (quantity.unit)
                 {
                     case "a":
-                        //add ucum math for AddYears
+                        dto = dto.AddDays(-365.25d);
                         break;
                     case "year":
                     case "years":
                         dto = dto.AddYears((int)value);
                         break;
                     case "mo":
-                        //add ucum math for AddMonths
+                        dto = dto.AddDays(-30.4375d);
                         break;
                     case "month":
                     case "months":
                         dto = dto.AddMonths((int)value);
                         break;
                     case "wk":
-                        //add ucum math for AddWeeks
-                        break;
                     case "week":
                     case "weeks":
                         dto = dto.AddDays((int)(value! * CqlDateTimeMath.DaysPerWeek));
                         break;
                     case "d":
-                        //add ucum math for AddDays
-                        break;
                     case "day":
                     case "days":
                         dto = dto.AddDays((int)value!);
                         break;
                     case "h":
-                        //add ucum math for AddHours
-                        break;
                     case "hour":
                     case "hours":
                         dto = dto.AddHours(Math.Truncate((double)value));
                         break;
                     case "mi":
-                        //add ucum math for AddMinutes
-                        break;
                     case "minute":
                     case "minutes":
                         dto = dto.AddMinutes(Math.Truncate((double)value));
                         break;
                     case "s":
-                        //add ucum math for AddSeconds
-                        break;
                     case "second":
                     case "seconds":
                         dto = dto.AddSeconds(Math.Truncate((double)value));
                         break;
                     case "ms":
-                        //add ucum math for AddMilliseconds
-                        break;
                     case "millisecond":
                     case "milliseconds":
                         dto = dto.AddMilliseconds(Math.Truncate((double)value));
