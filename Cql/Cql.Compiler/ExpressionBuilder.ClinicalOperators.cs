@@ -40,8 +40,13 @@ namespace Hl7.Cql.Compiler
         protected Expression InValueSet(elm.InValueSet e, ExpressionBuilderContext ctx)
         {
             var code = TranslateExpression(e.code!, ctx);
-            var valueSet = InvokeDefinitionThroughRuntimeContext(e.valueset!.name!, e.valueset.libraryName, typeof(CqlValueSet), ctx);
-            var codeType = code.Type;
+            Expression valueSet;
+
+            if (e.valuesetExpression != null)
+                valueSet = TranslateExpression(e.valuesetExpression!, ctx);
+            else
+                valueSet = InvokeDefinitionThroughRuntimeContext(e.valueset!.name!, e.valueset.libraryName, typeof(CqlValueSet), ctx); var codeType = code.Type;
+
             if (codeType == TypeResolver.CodeType)
             {
                 return OperatorBinding.Bind(CqlOperator.CodeInValueSet, ctx.RuntimeContextParameter, code, valueSet);
