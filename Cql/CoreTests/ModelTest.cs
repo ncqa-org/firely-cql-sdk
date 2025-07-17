@@ -33,7 +33,7 @@ namespace CoreTests
             var ctx = new CqlContext(CqlOperators.Create(new UnitTestTypeResolver(),
                 dataSource: dataSource,
                 now: new DateTimeIso8601(2023, 3, 28, null, null, null, null, null, null)));
-            var age = ctx.Operators.Age("a");
+            var age = ctx.Operators.Age("year");
             Assert.AreEqual(age, 39);
         }
 
@@ -48,7 +48,7 @@ namespace CoreTests
             var ctx = new CqlContext(CqlOperators.Create(new UnitTestTypeResolver(),
                 dataSource: dataSource,
                 now: new DateTimeIso8601(2023, 3, 28, null, null, null, null, null, null)));
-            var age = ctx.Operators.AgeAt(new CqlDate(2013, 3, 28), "a");
+            var age = ctx.Operators.AgeAt(new CqlDate(2013, 3, 28), "year");
             Assert.AreEqual(age, 29);
         }
 

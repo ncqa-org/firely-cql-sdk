@@ -80,8 +80,19 @@ namespace Hl7.Cql.Runtime
             else if (left.value == null || right.value == null)
                 return null;
             else if (left.unit != right.unit)
-                throw new NotSupportedException("Mixed unit arithmetic is not supported.");
-            else return new CqlQuantity(Add(left.value, right.value), left.unit);
+            {
+                string? leftUnit = left.unit;
+                string? rightUnit = right.unit;
+                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s") ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
+                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s") ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
+
+                if (normalizedLeftUnit != normalizedRightUnit)
+                    throw new NotSupportedException("Mixed unit arithmetic is not supported.");
+                // If normalized units are equal, proceed
+                return new CqlQuantity(Add(left.value, right.value), left.unit);
+            }   
+            else 
+                return new CqlQuantity(Add(left.value, right.value), left.unit);
         }
 
         #endregion
@@ -448,7 +459,17 @@ namespace Hl7.Cql.Runtime
             else if (left.value == null || right.value == null)
                 return null;
             else if (left.unit != right.unit)
-                throw new NotSupportedException("Mixed unit arithmetic is not supported.");
+            {
+                string? leftUnit = left.unit;
+                string? rightUnit = right.unit;
+                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s") ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
+                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s") ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
+
+                if (normalizedLeftUnit != normalizedRightUnit)
+                    throw new NotSupportedException("Mixed unit arithmetic is not supported.");
+                // If normalized units are equal, proceed
+                return new CqlQuantity(Modulo(left.value, right.value), left.unit);
+            }
             else
                 return new CqlQuantity(Modulo(left.value, right.value), left.unit);
         }
@@ -703,8 +724,19 @@ namespace Hl7.Cql.Runtime
             else if (left.value == null || right.value == null)
                 return null;
             else if (left.unit != right.unit)
-                throw new NotSupportedException("Mixed unit arithmetic is not supported.");
-            else return new CqlQuantity(Subtract(left.value, right.value), left.unit);
+            {
+                string? leftUnit = left.unit;
+                string? rightUnit = right.unit;
+                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s") ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
+                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s") ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
+
+                if (normalizedLeftUnit != normalizedRightUnit)
+                    throw new NotSupportedException("Mixed unit arithmetic is not supported.");
+                // If normalized units are equal, proceed
+                return new CqlQuantity(Subtract(left.value, right.value), left.unit);
+            }
+            else
+                return new CqlQuantity(Subtract(left.value, right.value), left.unit);
         }
 
         #endregion
