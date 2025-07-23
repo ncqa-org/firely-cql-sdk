@@ -9,6 +9,7 @@
 
 using Hl7.Cql.Abstractions;
 using System;
+using System.Linq;
 using System.Linq.Expressions;
 using elm = Hl7.Cql.Elm;
 
@@ -64,12 +65,7 @@ namespace Hl7.Cql.Compiler
                 ? Expression.Constant(null, typeof(int?))
                 : TranslateExpression(slice.endIndex!, ctx);
 
-            Expression end = endExpr;
-
-            if (ctx.Parent != null && ctx.Parent is Hl7.Cql.Elm.FunctionDef parentElement && parentElement.name != null && parentElement.name.ToString() == "Take last item")
-            {
-                end = WrapWithAdditionalSubtract(endExpr, ctx);
-            }
+            Expression end = WrapWithSubtractExpression(endExpr, ctx);
 
             if (IsOrImplementsIEnumerableOfT(source.Type))
             {
@@ -78,23 +74,41 @@ namespace Hl7.Cql.Compiler
             throw new NotImplementedException();
         }
 
-        private Expression WrapWithAdditionalSubtract(Expression expression, ExpressionBuilderContext ctx)
+        private Expression WrapWithSubtractExpression(Expression expression, ExpressionBuilderContext ctx)
         {
-            //create new expression to Subtract given expression by 1 so as to yield the correct end index for slicing
-            var literal = new elm.Literal
+            if (ctx.Parent != null && ctx.Parent is Hl7.Cql.Elm.FunctionDef parentElement && parentElement.name != null)
             {
-                value = "1",
-                valueType = new System.Xml.XmlQualifiedName("{urn:hl7-org:elm-types:r1}Integer")
-            };
+                // Check for annotation-tag with name == "operation" and value == "take-induced-slice"
+                var annotations = parentElement.annotation ?? Array.Empty<Hl7.Cql.Elm.Annotation>();
+                bool hasTakeInducedSlice = annotations
+                    .OfType<Hl7.Cql.Elm.Annotation>()
+                    .SelectMany(a => a.t ?? Array.Empty<Hl7.Cql.Elm.Tag>())
+                    .Any(tag => tag.name == "operation" && tag.value == "take-induced-slice");
 
-            var literalOneExp = TranslateExpression(literal, ctx);
+                if (hasTakeInducedSlice)
+                {
+                    //create new expression to Subtract given expression by 1 so as to yield the correct end index for slicing
+                    var literal = new elm.Literal
+                    {
+                        value = "1",
+                        valueType = new System.Xml.XmlQualifiedName("{urn:hl7-org:elm-types:r1}Integer")
+                    };
 
-            var subtractExpr = OperatorBinding.Bind(CqlOperator.Subtract, ctx.RuntimeContextParameter, expression, literalOneExp);
+                    var literalOneExp = TranslateExpression(literal, ctx);
 
-            return subtractExpr;
+                    var subtractExpr = OperatorBinding.Bind(CqlOperator.Subtract, ctx.RuntimeContextParameter, expression, literalOneExp);
+
+                    return subtractExpr;
+                }
+                else
+                {
+                    return expression;
+                }
+            }
+            else
+            {
+                return expression;
+            }
         }
-
     }
-    
-
 }
