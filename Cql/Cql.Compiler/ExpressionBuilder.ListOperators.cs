@@ -76,7 +76,9 @@ namespace Hl7.Cql.Compiler
 
         private Expression WrapWithSubtractExpression(Expression expression, ExpressionBuilderContext ctx)
         {
-            if (ctx.Parent != null && ctx.Parent is Hl7.Cql.Elm.FunctionDef parentElement && parentElement.name != null)
+            Hl7.Cql.Elm.ExpressionDef? parentElement = ctx.Parent as Hl7.Cql.Elm.ExpressionDef;
+
+            if (parentElement != null && parentElement.name != null)
             {
                 // Check for annotation-tag with name == "operation" and value == "take-induced-slice"
                 var annotations = parentElement.annotation ?? Array.Empty<Hl7.Cql.Elm.Annotation>();
