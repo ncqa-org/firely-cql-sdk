@@ -3577,5 +3577,57 @@ namespace CoreTests
             Assert.IsNotNull(meets);
             Assert.IsFalse(meets ?? false);
         }
+
+        [TestMethod]
+        public void Slice_test()
+        {
+            var rtx = GetNewContext();
+
+            //simple slicing
+            var inputList1 = new List<int> { 10, 11, 12, 13, 14, 15 };
+            var outputList1 = new List<int> { 12, 13, 14 };
+
+            var sliced1 = rtx.Operators.Slice(inputList1, 2, 4).ToArray();
+            var result1 = rtx.Operators.Comparer.Compare(outputList1!, sliced1!, null);
+            if (result1 != 0)
+                throw new AssertFailedException($"Expected {outputList1}; actual {sliced1}");
+
+            //mimic Skip(list,number)
+            var outputList2 = new List<int> { 13, 14, 15 };
+
+            var sliced2 = rtx.Operators.Slice(inputList1, 3, null).ToArray(); //skip first 3 indexes, so this sets startIndex to 3 meaning pull from 4th item in list till end
+            var result2 = rtx.Operators.Comparer.Compare(outputList2!, sliced2!, null);
+            if (result2 != 0)
+                throw new AssertFailedException($"Expected {outputList2}; actual {sliced2}");
+
+            //mimic Tail(list)
+            var outputList3 = new List<int> { 11, 12, 13, 14, 15 };
+
+            var sliced3 = rtx.Operators.Slice(inputList1, 1, null).ToArray(); //skip first index, so this sets startIndex to 1 meaning pull from 2nd item in list till end
+            var result3 = rtx.Operators.Comparer.Compare(outputList3!, sliced3!, null);
+            if (result3 != 0)
+                throw new AssertFailedException($"Expected {outputList3}; actual {sliced3}");
+
+            //mimic Take(list, number), where list is of type List<T>
+            var outputList4 = new List<int> { 10, 11, 12 };
+
+            //incorrectly take first 4 items, instead of first 3 items by setting startIndex to 0 and endIndex to 3, meaning it pulls first 4 items
+            var sliced4 = rtx.Operators.Slice(inputList1, 0, 3).ToArray();
+            var result4 = rtx.Operators.Comparer.Compare(outputList4!, sliced4!, null);
+            if (result4 != 0) //expected to not match, thats the bug with take->slice operation
+                Assert.IsNull(null, $"Expected {outputList4}; actual {sliced4}");
+
+            //mimic Take(list, number), where list is NOT of type List<T>
+            int[] inputList2 = { 10, 11, 12, 13, 14, 15 };
+            var outputList5 = new List<int> { 10, 11, 12 };
+
+            //incorrectly take first 4 items, instead of first 3 items by setting startIndex to 0 and endIndex to 3,
+            //but given the input list is not of type List<T>, Slice method skips endIndex, meaning it pulls first 3 items properly
+            var sliced5 = rtx.Operators.Slice(inputList2, 0, 3).ToArray();
+            var result5 = rtx.Operators.Comparer.Compare(outputList5!, sliced5!, null);
+            if (result5 != 0)
+                throw new AssertFailedException($"Expected {outputList3}; actual {sliced3}");
+        }
+
     }
 }

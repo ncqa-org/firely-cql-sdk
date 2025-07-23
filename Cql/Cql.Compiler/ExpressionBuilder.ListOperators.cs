@@ -60,9 +60,17 @@ namespace Hl7.Cql.Compiler
             var start = slice.startIndex == null || slice.startIndex is elm.Null
                 ? Expression.Constant(null, typeof(int?))
                 : TranslateExpression(slice.startIndex!, ctx);
-            var end = slice.endIndex == null || slice.endIndex is elm.Null
+            var endExpr = slice.endIndex == null || slice.endIndex is elm.Null
                 ? Expression.Constant(null, typeof(int?))
                 : TranslateExpression(slice.endIndex!, ctx);
+
+            Expression end = endExpr;
+
+            if (ctx.Parent != null && ctx.Parent is Hl7.Cql.Elm.FunctionDef parentElement && parentElement.name != null && parentElement.name.ToString() == "Take last item")
+            {
+                end = WrapWithAdditionalSubtract(endExpr, ctx);
+            }
+
             if (IsOrImplementsIEnumerableOfT(source.Type))
             {
                 return OperatorBinding.Bind(CqlOperator.Slice, ctx.RuntimeContextParameter, source, start, end);
@@ -70,5 +78,23 @@ namespace Hl7.Cql.Compiler
             throw new NotImplementedException();
         }
 
+        private Expression WrapWithAdditionalSubtract(Expression expression, ExpressionBuilderContext ctx)
+        {
+            //create new expression to Subtract given expression by 1 so as to yield the correct end index for slicing
+            var literal = new elm.Literal
+            {
+                value = "1",
+                valueType = new System.Xml.XmlQualifiedName("{urn:hl7-org:elm-types:r1}Integer")
+            };
+
+            var literalOneExp = TranslateExpression(literal, ctx);
+
+            var subtractExpr = OperatorBinding.Bind(CqlOperator.Subtract, ctx.RuntimeContextParameter, expression, literalOneExp);
+
+            return subtractExpr;
+        }
+
     }
+    
+
 }
