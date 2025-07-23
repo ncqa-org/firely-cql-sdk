@@ -13,7 +13,7 @@ define fluent function "Take first n items"(list List<Integer>):
     Take(list, "n")
 
 //@operation: take-induced-slice
-define "Take first 5 items":
+define "Take first n items":
     Take("Input list", "n")
 
 

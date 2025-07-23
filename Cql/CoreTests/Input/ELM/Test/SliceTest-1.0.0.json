@@ -296,7 +296,7 @@
           }
         },
         "locator" : "16:1-17:27",
-        "name" : "Take first 5 items",
+        "name" : "Take first n items",
         "context" : "Patient",
         "accessLevel" : "Public"
       }, {

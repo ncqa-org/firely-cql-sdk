@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace CoreTests
 {
@@ -93,6 +94,20 @@ namespace CoreTests
             var property = eb.GetProperty(typeof(MeasureReport.PopulationComponent), "id");
             Assert.AreEqual(typeof(Element), property.DeclaringType);
             Assert.AreEqual(nameof(Element.ElementId), property.Name);
+        }
+
+        [TestMethod]
+        public void Take_Induced_Slice_Test()
+        {
+            var binding = new CqlOperatorsBinding(TypeResolver, TypeConverter);
+            var typeManager = new TypeManager(TypeResolver);
+            var elm = new FileInfo(@"Input\ELM\Test\SliceTest-1.0.0.json");
+            var elmPackage = Hl7.Cql.Elm.Library.LoadFromJson(elm);
+            var logger = CreateLogger();
+            var eb = new ExpressionBuilder(binding, typeManager, elmPackage, logger);
+
+            var expressions = eb.Build();
+            Assert.IsNotNull(expressions);
         }
 
     }
