@@ -42,11 +42,12 @@ namespace Hl7.Cql.Compiler
             var code = TranslateExpression(e.code!, ctx);
             Expression valueSet;
 
-            if (e.valuesetExpression != null)
+            if(e.valuesetExpression != null)
                 valueSet = TranslateExpression(e.valuesetExpression!, ctx);
-            else
-                valueSet = InvokeDefinitionThroughRuntimeContext(e.valueset!.name!, e.valueset.libraryName, typeof(CqlValueSet), ctx); var codeType = code.Type;
-
+            else 
+                valueSet = InvokeDefinitionThroughRuntimeContext(e.valueset!.name!, e.valueset.libraryName, typeof(CqlValueSet), ctx);
+            
+            var codeType = code.Type;
             if (codeType == TypeResolver.CodeType)
             {
                 return OperatorBinding.Bind(CqlOperator.CodeInValueSet, ctx.RuntimeContextParameter, code, valueSet);

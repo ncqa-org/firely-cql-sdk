@@ -7,6 +7,7 @@
  */
 
 using Hl7.Cql.Iso8601;
+using System.Collections.Generic;
 
 namespace Hl7.Cql.Abstractions
 {
@@ -79,27 +80,14 @@ namespace Hl7.Cql.Abstractions
         /// Centimeters
         /// </summary>
         public const string Centimeter = "cm";
-
         /// <summary>
-        /// Maps <see cref="DateTimePrecision"/> to the corresponding UCUM unit.
+        /// Defines days per year
         /// </summary>
-        /// <param name="dtp">The precision to map.</param>
-        /// <returns>The corresponding UCUM units, or <see langword="null"/> if no mapping is defined.</returns>
-        public static string? FromDateTimePrecision(DateTimePrecision dtp)
-        {
-            return dtp switch
-            {
-                DateTimePrecision.Year => Year,
-                DateTimePrecision.Month => Month,
-                DateTimePrecision.Day => Day,
-                DateTimePrecision.Hour => Hour,
-                DateTimePrecision.Minute => Minute,
-                DateTimePrecision.Second => Second,
-                DateTimePrecision.Millisecond => Millisecond,
-                _ => null,
-            };
-        }
+        public const double DaysPerYearDouble = 365.25d;
+        /// <summary>
+        /// Defines days per month
+        /// </summary>        
+        public const double DaysPerMonthDouble = 30.4375d;
     }
-
 
 }
