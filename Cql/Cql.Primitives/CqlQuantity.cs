@@ -31,14 +31,9 @@ namespace Hl7.Cql.Primitives
         /// <param name="value">The value of this quantity.</param>
         /// <param name="unit">The units of this quantity.</param>
         public CqlQuantity(decimal? value, string? unit)
-        {   
-            if (unit != null && !UCUMUnits.DateTimeUnits.Contains(unit))
-            {
-                this.value = value;
-                this.unit = unit;
-            }
-            else
-                this.value = value;
+        {
+            this.value = value;
+            this.unit = unit;
         }
 
         /// <summary>
