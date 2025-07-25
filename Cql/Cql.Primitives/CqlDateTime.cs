@@ -186,7 +186,7 @@ namespace Hl7.Cql.Primitives
                 case "hours":
                     dto = dto.AddHours(Math.Truncate((double)value));
                     break;
-                case "mi":
+                case "min":
                 case "minute":
                 case "minutes":
                     dto = dto.AddMinutes(Math.Truncate((double)value));
@@ -258,7 +258,7 @@ namespace Hl7.Cql.Primitives
                 case "hours":
                     dto = dto.AddHours(Math.Truncate((double)value));
                     break;
-                case "mi":
+                case "min":
                 case "minute":
                 case "minutes":
                     dto = dto.AddMinutes(Math.Truncate((double)value));
