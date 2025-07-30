@@ -19,6 +19,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Hl7.Cql.CodeGeneration.NET
 {
@@ -117,9 +118,38 @@ namespace Hl7.Cql.CodeGeneration.NET
             bool defaultWriteFile(string nodeId) => true;
             writeFile ??= defaultWriteFile;
 
+            writeInterface(libraryNameToStream, closeStream);
+
             writeTupleTypes(tupleTypes, libraryNameToStream, closeStream);
 
             writeLibraries(definitions, dependencyGraph, libraryNameToStream, closeStream, writeFile!, libraryNameToClassName);
+        }
+
+        private void writeInterface(Func<string, Stream> libraryNameToStream, bool closeStream)
+        {
+            var stream = libraryNameToStream("ICqlMeaure");
+            try
+            {
+                int indentLevel = 0;
+                using var writer = new StreamWriter(stream, Encoding.UTF8, 1024, leaveOpen: true);
+                WriteUsings(writer);
+
+                writer.WriteLine(indentLevel, $"public interface ICqlMeaure");
+                writer.WriteLine(indentLevel, "{");
+                indentLevel += 1;
+                writer.WriteLine(indentLevel, $"IDictionary<string, object?> RunAll();");
+                writer.WriteLine(indentLevel, $"IDictionary<string, object?> RunPopulationOnly();");
+                writer.WriteLine(indentLevel, $"IDictionary<string, object?> Run();");
+                indentLevel -= 1;
+                writer.WriteLine(indentLevel, "}");
+            }
+            finally
+            {
+                if (closeStream && stream != null)
+                {
+                    stream.Close();
+                }
+            }
         }
 
         private void writeLibraries(DefinitionDictionary<LambdaExpression> definitions,
@@ -150,6 +180,45 @@ namespace Hl7.Cql.CodeGeneration.NET
                     int indentLevel = 0;
                     WriteUsings(writer);
 
+                    var cacheLibraryName = ""; //cacheLibrary?.NodeId.Replace("-", "_").Replace(".", "_");
+
+                    var hasContext = false;
+                    var node = dependencyGraph.Nodes[libraryName];
+                    if (node.Properties != null
+                        && node.Properties.TryGetValue("Library", out var nodeLibrary))
+                    {
+                        var requiredUsesContext = false;
+                        var requiredLibraries = node.ForwardEdges?
+                            .Select(edge => edge.ToId)
+                            .Except(new[] { dependencyGraph.EndNode.NodeId })
+                            .Distinct();
+
+                        foreach (var dependentLibrary in requiredLibraries!)
+                        {
+                            var dependentNode = dependencyGraph.Nodes[dependentLibrary];
+                            // dependency uses a constructor so we will need make the entire class scoped vs singleton
+                            if (dependentNode.Properties != null &&
+                                dependentNode.Properties.TryGetValue("Library", out var dependNodeLibrary))
+                            {
+                                var elmLibrary = (Elm.Library)dependNodeLibrary;
+                                if (elmLibrary?.contexts != null)
+                                {
+                                    requiredUsesContext = true;
+
+                                    if (!ContextLibraries.Contains(dependentLibrary))
+                                        ContextLibraries.Add(dependentLibrary);
+                                }
+
+                                if (dependentLibrary.StartsWith("Cache"))
+                                {
+                                    cacheLibraryName = dependentLibrary.Replace("-", "_").Replace(".", "_");
+                                }
+                            }
+                        }
+
+                        hasContext = ((Elm.Library)nodeLibrary)?.contexts != null || requiredUsesContext;
+                    }
+
                     // Namespace
                     if (!string.IsNullOrWhiteSpace(Namespace))
                     {
@@ -159,7 +228,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                         indentLevel += 1;
                     }
 
-                    writeClass(definitions, dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel);
+                    writeClass(definitions, dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel, hasContext, cacheLibraryName);
 
                     if (!string.IsNullOrWhiteSpace(Namespace))
                     {
@@ -181,7 +250,9 @@ namespace Hl7.Cql.CodeGeneration.NET
             DirectedGraph dependencyGraph,
             Func<string?, string?> libraryNameToClassName,
             string libraryName, StreamWriter writer,
-            int indentLevel)
+            int indentLevel,
+            bool hasContext,
+            string? cacheLibraryName)
         {
             writer.WriteLine(indentLevel, $"[System.CodeDom.Compiler.GeneratedCode(\"{Tool}\", \"{Version}\")]");
 
@@ -201,43 +272,14 @@ namespace Hl7.Cql.CodeGeneration.NET
             var className = VariableNameGenerator.NormalizeIdentifier(libraryName);
             if (PartialClass)
                 writer.WriteLine(indentLevel, $"public partial class {className}");
+            else if (hasContext)
+                writer.WriteLine(indentLevel, $"public class {className} : ICqlMeaure");
             else
                 writer.WriteLine(indentLevel, $"public class {className}");
 
             writer.WriteLine(indentLevel, "{");
             writer.WriteLine();
             indentLevel += 1;
-
-            var hasContext = false;
-            var node = dependencyGraph.Nodes[libraryName];
-            if (node.Properties != null 
-                && node.Properties.TryGetValue("Library", out var nodeLibrary))
-            {
-                var requiredUsesContext = false;
-                var requiredLibraries = node.ForwardEdges?
-                    .Select(edge => edge.ToId)
-                    .Except(new[] { dependencyGraph.EndNode.NodeId })
-                    .Distinct();
-
-                foreach (var dependentLibrary in requiredLibraries!)
-                {
-                    var dependentNode = dependencyGraph.Nodes[dependentLibrary];
-                    // dependency uses a constructor so we will need make the entire class scoped vs singleton
-                    if (dependentNode.Properties != null &&
-                        dependentNode.Properties.TryGetValue("Library", out var dependNodeLibrary))
-                    {
-                        if (((Elm.Library)dependNodeLibrary)?.contexts != null)
-                        {
-                            requiredUsesContext = true;
-
-                            if (!ContextLibraries.Contains(dependentLibrary))
-                                ContextLibraries.Add(dependentLibrary);
-                        }
-                    }
-                }
-
-                hasContext = ((Elm.Library)nodeLibrary)?.contexts != null || requiredUsesContext;
-            }
 
             // Class
             {
@@ -256,16 +298,32 @@ namespace Hl7.Cql.CodeGeneration.NET
                     writer.WriteLine(indentLevel, $"{AccessModifierString(ContextAccessModifier)} CqlContext context;");
                     writer.WriteLine();
 
+                    // Write constructor
+                    if (!string.IsNullOrEmpty(cacheLibraryName))
+                    {
+                        writer.WriteLine(indentLevel, $"{AccessModifierString(ContextAccessModifier)} {cacheLibraryName} cache;");
+                        writer.WriteLine();
+                    }
+
                     writeCachedValues(definitions, libraryName, writer, indentLevel);
 
                     // Write constructor
-                    writer.WriteLine(indentLevel, $"public {className}(CqlContext context)");
+                    if (!string.IsNullOrEmpty(cacheLibraryName))
+                        writer.WriteLine(indentLevel, $"public {className}(CqlContext context, {cacheLibraryName} cache)");
+                    else
+                        writer.WriteLine(indentLevel, $"public {className}(CqlContext context)");
                     writer.WriteLine(indentLevel, "{");
                     {
                         indentLevel += 1;
 
                         writer.WriteLine(indentLevel, "this.context = context ?? throw new ArgumentNullException(\"context\");");
                         writer.WriteLine();
+
+                        if (!string.IsNullOrEmpty(cacheLibraryName))
+                        {
+                            writer.WriteLine(indentLevel, "this.cache = cache ?? throw new ArgumentNullException(\"cache\");");
+                            writer.WriteLine();
+                        }
 
                         writeDependencies(dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel);
                         writer.WriteLine();
@@ -279,21 +337,153 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                 WriteLibraryMembers(writer, dependencyGraph, libraryName, libraryNameToClassName!, indentLevel);
 
-                writeMethods(definitions, libraryName, writer, indentLevel, hasContext);
+                if (hasContext)
+                {
+                    writeICqlMeasureInterface(definitions, libraryName, writer, indentLevel);
+                    writer.WriteLine();
+                }
+
+                writeMethods(definitions, libraryName, writer, indentLevel, hasContext, cacheLibraryName);
 
                 indentLevel -= 1;
                 writer.WriteLine(indentLevel, "}");
             }
         }
 
-        private void writeMethods(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel, bool useLazy)
+        private void writeICqlMeasureInterface(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel)
+        {
+            var libDef = definitions.DefinitionsForLibrary(libraryName);
+
+            var populationDefines = new List<string>();
+            var allDefines = new List<string>();
+            var ipDefines = new Dictionary<string, Type>();
+            var exclusionDefines = new Dictionary<string, Type>();
+
+            foreach (var kvp in libDef)
+            {
+                foreach (var overload in kvp.Value)
+                {
+                    definitions.TryGetTags(libraryName, kvp.Key, overload.Signature, out var tags);
+                    if (isDefinition(overload.T))
+                    {
+                        allDefines.Add(kvp.Key);
+
+                        if (kvp.Key == "Patient")
+                        {
+                            populationDefines.Add(kvp.Key);
+                        }
+
+                        var popTag = tags?.FirstOrDefault(t => t.Key == "population");
+                        var groupTag = tags?.FirstOrDefault(t => t.Key == "group");
+                        if (popTag != null && groupTag != null)
+                        {
+                            var popTagValue = popTag.First();
+                            populationDefines.Add(kvp.Key);
+
+                            if (popTagValue == "initial-population")
+                            {
+                                ipDefines.Add(kvp.Key, overload.T.ReturnType);
+                            }
+                            else if (popTagValue == "denominator-exclusion")
+                            {
+                                exclusionDefines.Add(kvp.Key, overload.T.ReturnType);
+                            }
+                        }
+                    }
+                }
+            }
+
+            #region RunAll
+            writer.WriteLine(indentLevel, "public IDictionary<string, object> RunAll()");
+            writer.WriteLine(indentLevel, "{");
+            indentLevel += 1;
+            writer.WriteLine(indentLevel, "var result = new Dictionary<string, object>");
+            writer.WriteLine(indentLevel, "{");
+            indentLevel += 1;
+            foreach (var def in allDefines)
+            {
+                var methodName = VariableNameGenerator.NormalizeIdentifier(def);
+                writer.WriteLine(indentLevel, "{ " + $"\"{def}\", this.{methodName}()" + " },");
+            }
+            indentLevel -= 1;
+            writer.WriteLine(indentLevel, "};");
+            writer.WriteLine(indentLevel, "");
+            writer.WriteLine(indentLevel, "return result;");
+            indentLevel -= 1;
+            writer.WriteLine(indentLevel, "}");
+            #endregion
+            #region RunPopulationOnly
+            writer.WriteLine(indentLevel, "public IDictionary<string, object> RunPopulationOnly()");
+            writer.WriteLine(indentLevel, "{");
+            indentLevel += 1;
+            writer.WriteLine(indentLevel, "var result = new Dictionary<string, object>");
+            writer.WriteLine(indentLevel, "{");
+            indentLevel += 1;
+            foreach (var def in populationDefines)
+            {
+                var methodName = VariableNameGenerator.NormalizeIdentifier(def);
+                writer.WriteLine(indentLevel, "{ " + $"\"{def}\", this.{methodName}()" + " },");
+            }
+            indentLevel -= 1;
+            writer.WriteLine(indentLevel, "};");
+            writer.WriteLine(indentLevel, "");
+            writer.WriteLine(indentLevel, "return result;");
+            indentLevel -= 1;
+            writer.WriteLine(indentLevel, "}");
+            #endregion
+            #region Run
+            writer.WriteLine(indentLevel, "public IDictionary<string, object> Run()");
+            writer.WriteLine(indentLevel, "{");
+            indentLevel += 1;
+
+            if (ipDefines.Any())
+            {
+                writer.WriteLine(indentLevel, "var hasIpTrue = false;");
+                foreach (var def in ipDefines)
+                {
+                    var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
+                    if (def.Value == typeof(bool) || def.Value == typeof(bool?))
+                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? false);");
+                    else if (def.Value == typeof(int) || def.Value == typeof(int?))
+                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? 0) > 0;");
+                    else
+                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}()?.Any() ?? false);");
+                }
+                writer.WriteLine(indentLevel, "if (!hasIpTrue) return new Dictionary<string, object>();");
+            }
+
+            if (exclusionDefines.Any())
+            {
+                writer.WriteLine(indentLevel, "var allExclusionsTrue = true;");
+
+                foreach (var def in exclusionDefines)
+                {
+                    var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
+                    if (def.Value == typeof(bool) || def.Value == typeof(bool?))
+                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? false);");
+                    else if (def.Value == typeof(int) || def.Value == typeof(int?))
+                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? 0) > 0;");
+                    else
+                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}()?.Any() ?? false);");
+                }
+                writer.WriteLine(indentLevel, "if (allExclusionsTrue) return new Dictionary<string, object>();");
+            }
+
+            writer.WriteLine(indentLevel, "");
+            writer.WriteLine(indentLevel, "return RunAll();");
+            indentLevel -= 1;
+            writer.WriteLine(indentLevel, "}");
+            #endregion
+        }
+
+        private void writeMethods(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel, bool useLazy, string? cacheLibraryName)
         {
             foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
             {
                 foreach (var overload in kvp.Value)
                 {
                     definitions.TryGetTags(libraryName, kvp.Key, overload.Signature, out var tags);
-                    writeMethod(libraryName, writer, indentLevel, useLazy, kvp.Key, overload.T, tags);
+                    writeMethod(libraryName, writer, indentLevel, useLazy, kvp.Key, overload.T, cacheLibraryName, tags);
                     writer.WriteLine();
                 }
             }
@@ -317,9 +507,9 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
         }
 
-        private void writeDependencies(DirectedGraph dependencyGraph, 
-            Func<string?, string?> libraryNameToClassName, 
-            string libraryName, StreamWriter writer, 
+        private void writeDependencies(DirectedGraph dependencyGraph,
+            Func<string?, string?> libraryNameToClassName,
+            string libraryName, StreamWriter writer,
             int indentLevel)
         {
             var node = dependencyGraph.Nodes[libraryName];
@@ -330,7 +520,7 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             foreach (var dependentLibrary in requiredLibraries!)
             {
-                if (ContextLibraries.Contains(dependentLibrary))
+                if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache"))
                 {
                     var typeName = libraryNameToClassName!(dependentLibrary);
                     var memberName = typeName;
@@ -344,6 +534,12 @@ namespace Hl7.Cql.CodeGeneration.NET
             writer.WriteLine(indentLevel, "#region Cached values");
             writer.WriteLine();
             var accessModifier = AccessModifierString(DefinesAccessModifier);
+
+            if (libraryName.StartsWith("Cache"))
+            {
+                accessModifier = "public";
+            }
+
             foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
             {
                 foreach (var overload in kvp.Value)
@@ -423,7 +619,9 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                 foreach (var dependentLibrary in requiredLibraries)
                 {
-                    if (ContextLibraries.Contains(dependentLibrary))
+                    // library exists and it's not the "Cache" library
+                    //if (ContextLibraries.Contains(dependentLibrary))
+                    if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache"))
                     {
                         var typeName = libraryNameToClassName(dependentLibrary);
                         var memberName = typeName;
@@ -458,6 +656,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             bool useLazy,
             string cqlName,
             LambdaExpression overload,
+            string? cacheLibraryName,
             ILookup<string, string>? tags)
         {
             var methodName = VariableNameGenerator.NormalizeIdentifier(cqlName);
@@ -486,6 +685,25 @@ namespace Hl7.Cql.CodeGeneration.NET
                     var privateMethodName = PrivateMethodNameFor(methodName!);
 
                     var func = expressionConverter.ConvertTopLevelFunctionDefinition(indentLevel, overload, privateMethodName, "private", true);
+
+                    if (!string.IsNullOrEmpty(cacheLibraryName))
+                    {
+                        //var cacheFunction = CacheLibrary;
+                        // convert from
+                        // var a_ = Cache_2025_0_0.Has_hospice_during(); 
+                        // to
+                        // var a_ = cache.__Has_hospice_during?.Value;
+                        var cacheIndex = func.IndexOf(cacheLibraryName);
+                        if (cacheIndex > 0)
+                        {
+                            func = func.Replace($"{cacheLibraryName}.", "cache.__");
+
+                            string pattern = @"(cache\.\w+)\(\)";
+                            string replacement = "$1?.Value";
+                            var output = Regex.Replace(func, pattern, replacement);
+                            func = output;
+                        }
+                    }
                     writer.Write(func);
                     writer.WriteLine();
                 }

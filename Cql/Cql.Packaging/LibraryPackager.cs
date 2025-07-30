@@ -210,6 +210,24 @@ namespace Hl7.Cql.Packaging
 
             resources.AddRange(resourceDataValues);
 
+            if (assemblies.TryGetValue("ICqlMeaure", out var cqlMeasureInterface))
+            {
+                foreach (var sourceKvp in cqlMeasureInterface.SourceCode)
+                {
+                    var icqlSourceBytes = Encoding.UTF8.GetBytes(sourceKvp.Value);
+
+                    var cqlMeasureBinary = new Binary
+                    {
+                        Id = "ICqlMeasure",
+                        ContentType = "text/plain",
+                        Data = icqlSourceBytes,
+                    };
+
+                    resources.Add(cqlMeasureBinary);
+                }
+
+            }
+
             var tupleAssembly = assemblies["TupleTypes"];
 
             var tuplesBinary = new Binary
