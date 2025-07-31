@@ -14,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace Hl7.Cql.Runtime
 {
@@ -1101,28 +1102,37 @@ namespace Hl7.Cql.Runtime
 
         public IEnumerable<T>? Slice<T>(IEnumerable<T>? source, int? startIndex, int? endIndex)
         {
+            //If the source list is null, the result is null.
             if (source == null)
                 return null;
-            if ((startIndex == null && endIndex == null) || !source.Any())
-            {
+
+            //define "TailEmpty": Tail({ }) // { }
+            if (!source.Any())
                 return Enumerable.Empty<T>();
-            }
-            var si = startIndex ?? 0;
-            if (source is List<T> list)
+
+            //define "SkipNull": Skip({ 1, 3, 5 }, null) // { 1, 3, 5 }
+            if (startIndex == null && endIndex == null)
+                return source;
+
+            //If the number of elements is less than zero, the result is an empty list.
+            //define "SkipEmpty": Skip({ 1, 3, 5 }, -1) // { }
+            if (startIndex < 0)
+                return Enumerable.Empty<T>();
+
+            //If number is null, or 0 or less, the result is an empty list.
+            //define "TakeEmpty": Take({ 1, 2, 3, 4 }, null) // { }
+            if (endIndex <= 0)
+                return Enumerable.Empty<T>();
+
+            //Skip and Tail operations where the endIndex is always null
+            if (endIndex == null)
             {
-                var lcm1 = list.Count - 1;
-                var ei = Math.Min(endIndex ?? lcm1, lcm1);
-                var count = ei - si + 1;
-                var slice = list.GetRange(si, count);
-                return slice;
+                return source.Skip(startIndex ?? 0).ToList();
             }
+            //Take operation
             else
             {
-                var skip = source.Skip(si);
-                var result = new List<T>();
-                foreach (var item in skip.Take(endIndex ?? int.MaxValue))
-                    result.Add(item);
-                return result;
+                return source.Skip(startIndex ?? 0).Take((endIndex ?? 0) - (startIndex ?? 0)).ToList();
             }
         }
 
