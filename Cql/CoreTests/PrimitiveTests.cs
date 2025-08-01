@@ -19,9 +19,6 @@ using System.Linq.Expressions;
 using static Microsoft.ApplicationInsights.MetricDimensionNames.TelemetryContext;
 using DateTimePrecision = Hl7.Cql.Iso8601.DateTimePrecision;
 using Expression = System.Linq.Expressions.Expression;
-using Description = Microsoft.VisualStudio.TestTools.UnitTesting.DescriptionAttribute;
-using System.Xml.Linq;
-using Hl7.Fhir.Language.Debugging;
 
 namespace CoreTests
 {
