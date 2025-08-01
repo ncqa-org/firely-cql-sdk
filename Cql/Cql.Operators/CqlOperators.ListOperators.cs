@@ -14,7 +14,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Xml.Linq;
 
 namespace Hl7.Cql.Runtime
 {
