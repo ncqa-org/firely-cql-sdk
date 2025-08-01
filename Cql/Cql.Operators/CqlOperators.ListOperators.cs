@@ -1102,34 +1102,22 @@ namespace Hl7.Cql.Runtime
 
         public IEnumerable<T>? Slice<T>(IEnumerable<T>? source, int? startIndex, int? endIndex)
         {
-            //If the source list is null, the result is null.
             if (source == null)
                 return null;
 
-            //define "TailEmpty": Tail({ }) // { }
             if (!source.Any())
                 return Enumerable.Empty<T>();
 
-            //define "SkipNull": Skip({ 1, 3, 5 }, null) // { 1, 3, 5 }
             if (startIndex == null && endIndex == null)
                 return source;
 
-            //If the number of elements is less than zero, the result is an empty list.
-            //define "SkipEmpty": Skip({ 1, 3, 5 }, -1) // { }
-            if (startIndex < 0)
+            if (startIndex < 0 || endIndex <= 0)
                 return Enumerable.Empty<T>();
 
-            //If number is null, or 0 or less, the result is an empty list.
-            //define "TakeEmpty": Take({ 1, 2, 3, 4 }, null) // { }
-            if (endIndex <= 0)
-                return Enumerable.Empty<T>();
-
-            //Skip and Tail operations where the endIndex is always null
             if (endIndex == null)
             {
                 return source.Skip(startIndex ?? 0).ToList();
             }
-            //Take operation
             else
             {
                 return source.Skip(startIndex ?? 0).Take((endIndex ?? 0) - (startIndex ?? 0)).ToList();
