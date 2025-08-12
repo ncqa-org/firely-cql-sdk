@@ -102,6 +102,10 @@ namespace CoreTests
             Assert.IsNull(plus2pt5Months.Value.Hour);
             Assert.AreEqual("2022-03-01", plus2pt5Months.ToString());
 
+            var plus1UcumMonth = baseDate.Add(new CqlQuantity(1m, "mo"));
+            Assert.AreEqual(DateTimePrecision.Day, plus1UcumMonth.Value.Precision);
+            Assert.IsNull(plus1UcumMonth.Value.Hour);
+            Assert.AreEqual("2022-01-31", plus1UcumMonth.ToString());
         }
 
         [TestMethod]
@@ -123,6 +127,28 @@ namespace CoreTests
             Assert.AreEqual(DateTimePrecision.Day, minus2pt5Months.Value.Precision);
             Assert.IsNull(minus2pt5Months.Value.Hour);
             Assert.AreEqual("2022-01-01", minus2pt5Months.ToString());
+
+            var minus1UcumMonth = baseDate.Subtract(new CqlQuantity(1m, "mo"));
+            Assert.AreEqual(DateTimePrecision.Day, minus1UcumMonth.Value.Precision);
+            Assert.IsNull(minus1UcumMonth.Value.Hour);
+            Assert.AreEqual("2022-01-29", minus1UcumMonth.ToString());
+
+        }
+
+        [TestMethod]
+        public void CqlDateTime_Subtract_Year()
+        {
+            Assert.IsTrue(CqlDateTime.TryParse("2025-03-01", out var baseDate));
+
+            var minus1Year = baseDate.Subtract(new CqlQuantity(1m, "year"));
+            Assert.AreEqual(DateTimePrecision.Day, minus1Year.Value.Precision);
+            Assert.IsNull(minus1Year.Value.Hour);
+            Assert.AreEqual("2024-03-01", minus1Year.ToString());
+
+            var minus1UcumYear = baseDate.Subtract(new CqlQuantity(1m, "a"));
+            Assert.AreEqual(DateTimePrecision.Day, minus1UcumYear.Value.Precision);
+            Assert.IsNull(minus1UcumYear.Value.Hour);
+            Assert.AreEqual("2024-02-29", minus1UcumYear.ToString());
 
         }
 
@@ -3577,5 +3603,190 @@ namespace CoreTests
             Assert.IsNotNull(meets);
             Assert.IsFalse(meets ?? false);
         }
+
+        #region Slice tests
+
+        /* Refer http://cql.hl7.org/09-b-cqlreference.html for operation details on Skip, Tail and Take cql operators 
+         * These CQL operators uses Slice semantics from http://cql.hl7.org/04-logicalspecification.html#slice
+        */
+        
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void Skip2()
+        {
+            //The Skip operator returns the elements in the list, skipping the first number elements. 
+            //define "Skip2": Skip({ 1, 2, 3, 4, 5 }, 2) // { 3, 4, 5 }
+            var rtx = GetNewContext();
+            var inputList = new List<int> { 1, 2, 3, 4, 5 };
+            var expectedList = new List<int> { 3, 4, 5 };
+            var slicedList = rtx.Operators.Slice(inputList, 2, null);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void SkipNull()
+        {
+            //If the number of elements is null, the result is the entire list, no elements are skipped.
+            //define "SkipNull": Skip({ 1, 3, 5 }, null) // { 1, 3, 5 }
+            var rtx = GetNewContext();
+            var inputList = new List<int> { 1, 3, 5 };
+            var expectedList = new List<int> { 1, 3, 5 };
+            var slicedList = rtx.Operators.Slice(inputList, null, null);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void SkipEmpty()
+        {
+            //If the number of elements is less than zero, the result is an empty list.
+            //define "SkipEmpty": Skip({ 1, 3, 5 }, -1) // { }
+            var rtx = GetNewContext();
+            var inputList = new List<int> { 1, 3, 5 };
+            var expectedList = new List<int> {};
+            var slicedList = rtx.Operators.Slice(inputList, -1, null);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void SkipIsNull()
+        {
+            //If the source list is null, the result is null.
+            //define "SkipIsNull": Skip(null, 2)
+            var rtx = GetNewContext();
+            var inputList = null as List<int>;
+            var expectedList = null as List<int>;
+            var slicedList = rtx.Operators.Slice(inputList, 2, null);
+            Assert.IsNull(slicedList);
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void Tail234()
+        {
+            //The Tail operator returns all but the first element from the given list. 
+            //define "Tail234": Tail({ 1, 2, 3, 4 }) // { 2, 3, 4 }
+            var rtx = GetNewContext();
+            var inputList = new List<int> { 1, 2, 3, 4 };
+            var expectedList = new List<int> { 2, 3, 4 };
+            var slicedList = rtx.Operators.Slice(inputList, 1, null);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void TailEmpty()
+        {
+            //If the list is empty, the result is empty.
+            //define "TailEmpty": Tail({ }) // { }
+            var rtx = GetNewContext();
+            var inputList = new List<int> {  };
+            var expectedList = new List<int> { };
+            var slicedList = rtx.Operators.Slice(inputList, 1, null);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void TailIsNull()
+        {
+            //If the source list is null, the result is null.
+            //define "TailIsNull": Tail(null)
+            var rtx = GetNewContext();
+            var inputList = null as List<int>;
+            var expectedList = null as List<int>;
+            var slicedList = rtx.Operators.Slice(inputList, 1, null);
+            Assert.IsNull(slicedList);
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void Take2()
+        {
+            //The Take operator returns the first number elements from the given list.
+            //define "Take2": Take({ 1, 2, 3, 4 }, 2) // { 1, 2 }
+            var rtx = GetNewContext();
+            var inputList = new List<int> { 1, 2, 3, 4 };
+            var expectedList = new List<int> { 1, 2 };
+            var slicedList = rtx.Operators.Slice(inputList, 0, 2);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void TakeTooMany()
+        {
+            //If the list has less than number elements, the result only contains the elements in the list.
+            //define "TakeTooMany": Take({ 1, 2 }, 3) // { 1, 2 }
+            var rtx = GetNewContext();
+            var inputList = new List<int> { 1, 2 };
+            var expectedList = new List<int> { 1, 2 };
+            var slicedList = rtx.Operators.Slice(inputList, 0, 3);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void TakeEmpty()
+        {
+            //If number is null, or 0 or less, the result is an empty list.
+            //define "TakeEmpty": Take({ 1, 2, 3, 4 }, null) // { }
+            var rtx = GetNewContext();
+            var inputList = new List<int> { 1, 2, 3, 4 };
+            var expectedList = new List<int> { };
+            var slicedList = rtx.Operators.Slice(inputList, 0, 0);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void TakeIsNull()
+        {
+            //If the source list is null, the result is null.
+            //define "TakeIsNull": Take(null, 2)
+            var rtx = GetNewContext();
+            var inputList = null as List<int>;
+            var expectedList = null as List<int>;
+            var slicedList = rtx.Operators.Slice(inputList, 0, 2);
+            Assert.IsNull(slicedList);
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void Slice_array_source()
+        {
+            //Testing array as a source for Slice operator
+            var rtx = GetNewContext();
+            var inputSource = new [] { 1, 2, 3, 4 };
+            var expectedList = new List<int> { 1, 2 };
+            var slicedList = rtx.Operators.Slice(inputSource, 0, 2);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        [TestCategory("SliceTests")]
+        [TestMethod]
+        public void Slice_linkedList_source()
+        {
+            // Testing LinkedList as a source for Slice operator
+            var rtx = GetNewContext();
+            var inputSource = new LinkedList<int>(new[] { 1, 2, 3, 4 });
+            var expectedList = new List<int> { 1, 2 };
+            var slicedList = rtx.Operators.Slice(inputSource, 0, 2);
+            Assert.IsNotNull(slicedList);
+            CollectionAssert.AreEqual(expectedList, slicedList.ToList());
+        }
+
+        #endregion
     }
 }

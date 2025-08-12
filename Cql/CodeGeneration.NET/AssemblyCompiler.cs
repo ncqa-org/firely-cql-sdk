@@ -24,6 +24,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Xml.Linq;
 
 namespace Hl7.Cql.CodeGeneration.NET
 {
@@ -127,11 +128,25 @@ namespace Hl7.Cql.CodeGeneration.NET
             var tupleStreams = navToLibraryStream
                 .Where(kvp => kvp.Key.StartsWith("Tuples" + Path.DirectorySeparatorChar));
             var tupleAssembly = CompileTuples(tupleStreams, references);
+            assemblies.Add("TupleTypes", tupleAssembly);
+
             var additionalReferences = new[]
             {
                 tupleAssembly
             };
-            assemblies.Add("TupleTypes", tupleAssembly);
+
+            if (navToLibraryStream.TryGetValue("ICqlMeaure", out var icqlMeasureStream))
+            {
+                var interfaceAssembly = CompileInterface(icqlMeasureStream, references);
+                assemblies.Add("ICqlMeaure", interfaceAssembly);
+
+                additionalReferences = new[]
+                {
+                    tupleAssembly,
+                    interfaceAssembly
+                };
+            }
+
             var buildOrder = DetermineBuildOrder(dependencies);
             foreach (var node in buildOrder)
             {
@@ -140,6 +155,63 @@ namespace Hl7.Cql.CodeGeneration.NET
                 CompileNode(sourceCodeStream, assemblies, node, references, additionalReferences);
             }
             return assemblies;
+        }
+
+        private AssemblyData CompileInterface(Stream sourceCodeStream,
+            IEnumerable<Assembly> assemblyReferences)
+        {
+            sourceCodeStream.Flush();
+            sourceCodeStream.Seek(0, SeekOrigin.Begin);
+            var reader = new StreamReader(sourceCodeStream);
+            var sourceCode = reader.ReadToEnd().Trim();
+            var tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+
+            var metadataReferences = new List<MetadataReference>();
+            AddNetCoreReferences(metadataReferences);
+            foreach (var asm in assemblyReferences)
+            {
+                metadataReferences.Add(MetadataReference.CreateFromFile(asm.Location));
+            }
+
+            var compilation = CSharpCompilation.Create("ICqlMeaure")
+                .WithOptions(new CSharpCompilationOptions(outputKind: OutputKind.DynamicallyLinkedLibrary,
+                    optimizationLevel: OptimizationLevel.Release))
+                .WithReferences(metadataReferences);
+
+            compilation = compilation.AddSyntaxTrees(tree);
+
+            var codeStream = new MemoryStream();
+            var compilationResult = compilation.Emit(codeStream);
+            var errors = new List<Diagnostic>();
+            var warnings = new List<Diagnostic>();
+            if (!compilationResult.Success)
+            {
+                var sb = new StringBuilder();
+                foreach (var diag in compilationResult.Diagnostics)
+                {
+                    switch (diag.Severity)
+                    {
+                        case DiagnosticSeverity.Warning:
+                            warnings.Add(diag);
+                            break;
+                        case DiagnosticSeverity.Error:
+                            errors.Add(diag);
+                            break;
+                        case DiagnosticSeverity.Hidden:
+                        case DiagnosticSeverity.Info:
+                        default:
+                            break;
+                    }
+                    sb.AppendLine(diag.ToString());
+                }
+                var ex = new InvalidOperationException($"The following compilation errors were detected when compiling Interfaces:{Environment.NewLine}{sb}");
+                ex.Data["Errors"] = errors;
+                ex.Data["Warnings"] = warnings;
+                throw ex;
+            }
+            var bytes = codeStream.ToArray();
+            var asmData = new AssemblyData(bytes, new Dictionary<string, string> { { "ICqlMeaure", sourceCode } });
+            return asmData;
         }
 
         private AssemblyData CompileTuples(IEnumerable<KeyValuePair<string, Stream>> tupleStreams,
