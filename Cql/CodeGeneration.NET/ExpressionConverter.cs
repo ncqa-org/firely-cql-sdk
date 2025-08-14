@@ -58,7 +58,10 @@ namespace Hl7.Cql.CodeGeneration.NET
             };
         }
 
-        private static readonly ObjectIDGenerator gen = new();
+        // private static readonly ObjectIDGenerator gen = new();
+        // Replace the obsolete ObjectIDGenerator with a Dictionary-based approach for unique ID generation.
+        private static readonly Dictionary<object, long> gen = new();
+        private static long nextId = 1;
 
         public string LibraryName { get; }
         public IList<string> ContextLibraries { get; }
@@ -556,11 +559,23 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
         }
 
+        // Fix for CS0121: Remove the duplicate definition of the `paramName` method.  
+        // The duplicate method is located near the bottom of the file.  
+        // Retain only one definition of the `paramName` method.  
+
         private static string paramName(ParameterExpression p)
         {
-            if (p.Name is not null) return p.Name;
+            if (p.Name is not null)
+                return p.Name;
             else
-                return $"var{gen.GetId(p, out var _)}";
+            {
+                if (!gen.TryGetValue(p, out var id))
+                {
+                    id = nextId++;
+                    gen[p] = id;
+                }
+                return $"var{id}";
+            }
         }
 
         private string convertBinaryExpression(int indent, string leadingIndentString, BinaryExpression binary)

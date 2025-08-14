@@ -23,7 +23,7 @@ namespace Hl7.Cql.Fhir
     /// </summary>
     /// <remarks>A simple model that assumes the Bundles contain all the information about a
     /// patient, e.g. as the result of a $everything operation.</remarks>
-    internal class BundleDataSource : IDataSource
+    public class BundleDataSource : IDataSource
     {
         /// <summary>
         /// Construct a new source passing in the necessary terminology information

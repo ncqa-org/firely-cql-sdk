@@ -7,11 +7,11 @@
 		<RootNamespace>Hl7.Cql.Abstractions</RootNamespace>
 		<Product>CQL</Product>
 		<Description>Support package for Hl7.Cql. Contains shared interfaces and abstractions for CQL.</Description>
-		<NoWarn>CS8601</NoWarn>
+		<NoWarn>CS8601;CS8981</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\Iso8601\Iso8601.csproj" />
+   <ProjectReference Include="..\Iso8601\Iso8601.csproj" />
 		<InternalsVisibleTo Include="Hl7.Cql.Fhir" Key="$(LibraryPKHash)" />
 		<InternalsVisibleTo Include="Hl7.Cql.Model" Key="$(LibraryPKHash)" />
 		<InternalsVisibleTo Include="Hl7.Cql.Runtime" Key="$(LibraryPKHash)" />
