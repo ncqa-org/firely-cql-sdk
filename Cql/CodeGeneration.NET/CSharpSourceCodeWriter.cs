@@ -127,14 +127,14 @@ namespace Hl7.Cql.CodeGeneration.NET
 
         private void writeInterface(Func<string, Stream> libraryNameToStream, bool closeStream)
         {
-            var stream = libraryNameToStream("ICqlMeaure");
+            var stream = libraryNameToStream("ICqlMeasure");
             try
             {
                 int indentLevel = 0;
                 using var writer = new StreamWriter(stream, Encoding.UTF8, 1024, leaveOpen: true);
                 WriteUsings(writer);
 
-                writer.WriteLine(indentLevel, $"public interface ICqlMeaure");
+                writer.WriteLine(indentLevel, $"public interface ICqlMeasure");
                 writer.WriteLine(indentLevel, "{");
                 indentLevel += 1;
                 writer.WriteLine(indentLevel, $"IDictionary<string, object?> RunAll();");
@@ -273,7 +273,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             if (PartialClass)
                 writer.WriteLine(indentLevel, $"public partial class {className}");
             else if (hasContext)
-                writer.WriteLine(indentLevel, $"public class {className} : ICqlMeaure");
+                writer.WriteLine(indentLevel, $"public class {className} : ICqlMeasure");
             else
                 writer.WriteLine(indentLevel, $"public class {className}");
 

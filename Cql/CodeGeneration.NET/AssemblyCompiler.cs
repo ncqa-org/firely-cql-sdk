@@ -135,10 +135,10 @@ namespace Hl7.Cql.CodeGeneration.NET
                 tupleAssembly
             };
 
-            if (navToLibraryStream.TryGetValue("ICqlMeaure", out var icqlMeasureStream))
+            if (navToLibraryStream.TryGetValue("ICqlMeasure", out var icqlMeasureStream))
             {
                 var interfaceAssembly = CompileInterface(icqlMeasureStream, references);
-                assemblies.Add("ICqlMeaure", interfaceAssembly);
+                assemblies.Add("ICqlMeasure", interfaceAssembly);
 
                 additionalReferences = new[]
                 {
@@ -173,7 +173,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 metadataReferences.Add(MetadataReference.CreateFromFile(asm.Location));
             }
 
-            var compilation = CSharpCompilation.Create("ICqlMeaure")
+            var compilation = CSharpCompilation.Create("ICqlMeasure")
                 .WithOptions(new CSharpCompilationOptions(outputKind: OutputKind.DynamicallyLinkedLibrary,
                     optimizationLevel: OptimizationLevel.Release))
                 .WithReferences(metadataReferences);
@@ -210,7 +210,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 throw ex;
             }
             var bytes = codeStream.ToArray();
-            var asmData = new AssemblyData(bytes, new Dictionary<string, string> { { "ICqlMeaure", sourceCode } });
+            var asmData = new AssemblyData(bytes, new Dictionary<string, string> { { "ICqlMeasure", sourceCode } });
             return asmData;
         }
 

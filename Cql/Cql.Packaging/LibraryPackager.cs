@@ -210,7 +210,7 @@ namespace Hl7.Cql.Packaging
 
             resources.AddRange(resourceDataValues);
 
-            if (assemblies.TryGetValue("ICqlMeaure", out var cqlMeasureInterface))
+            if (assemblies.TryGetValue("ICqlMeasure", out var cqlMeasureInterface))
             {
                 foreach (var sourceKvp in cqlMeasureInterface.SourceCode)
                 {
