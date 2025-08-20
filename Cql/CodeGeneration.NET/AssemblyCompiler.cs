@@ -135,17 +135,17 @@ namespace Hl7.Cql.CodeGeneration.NET
                 tupleAssembly
             };
 
-            if (navToLibraryStream.TryGetValue("ICqlMeasure", out var icqlMeasureStream))
-            {
-                var interfaceAssembly = CompileInterface(icqlMeasureStream, references);
-                assemblies.Add("ICqlMeasure", interfaceAssembly);
+            //if (navToLibraryStream.TryGetValue("ICqlMeasure", out var icqlMeasureStream))
+            //{
+            //    var interfaceAssembly = CompileInterface(icqlMeasureStream, references);
+            //    assemblies.Add("ICqlMeasure", interfaceAssembly);
 
-                additionalReferences = new[]
-                {
-                    tupleAssembly,
-                    interfaceAssembly
-                };
-            }
+            //    additionalReferences = new[]
+            //    {
+            //        tupleAssembly,
+            //        interfaceAssembly
+            //    };
+            //}
 
             var buildOrder = DetermineBuildOrder(dependencies);
             foreach (var node in buildOrder)
@@ -155,63 +155,6 @@ namespace Hl7.Cql.CodeGeneration.NET
                 CompileNode(sourceCodeStream, assemblies, node, references, additionalReferences);
             }
             return assemblies;
-        }
-
-        private AssemblyData CompileInterface(Stream sourceCodeStream,
-            IEnumerable<Assembly> assemblyReferences)
-        {
-            sourceCodeStream.Flush();
-            sourceCodeStream.Seek(0, SeekOrigin.Begin);
-            var reader = new StreamReader(sourceCodeStream);
-            var sourceCode = reader.ReadToEnd().Trim();
-            var tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
-
-            var metadataReferences = new List<MetadataReference>();
-            AddNetCoreReferences(metadataReferences);
-            foreach (var asm in assemblyReferences)
-            {
-                metadataReferences.Add(MetadataReference.CreateFromFile(asm.Location));
-            }
-
-            var compilation = CSharpCompilation.Create("ICqlMeasure")
-                .WithOptions(new CSharpCompilationOptions(outputKind: OutputKind.DynamicallyLinkedLibrary,
-                    optimizationLevel: OptimizationLevel.Release))
-                .WithReferences(metadataReferences);
-
-            compilation = compilation.AddSyntaxTrees(tree);
-
-            var codeStream = new MemoryStream();
-            var compilationResult = compilation.Emit(codeStream);
-            var errors = new List<Diagnostic>();
-            var warnings = new List<Diagnostic>();
-            if (!compilationResult.Success)
-            {
-                var sb = new StringBuilder();
-                foreach (var diag in compilationResult.Diagnostics)
-                {
-                    switch (diag.Severity)
-                    {
-                        case DiagnosticSeverity.Warning:
-                            warnings.Add(diag);
-                            break;
-                        case DiagnosticSeverity.Error:
-                            errors.Add(diag);
-                            break;
-                        case DiagnosticSeverity.Hidden:
-                        case DiagnosticSeverity.Info:
-                        default:
-                            break;
-                    }
-                    sb.AppendLine(diag.ToString());
-                }
-                var ex = new InvalidOperationException($"The following compilation errors were detected when compiling Interfaces:{Environment.NewLine}{sb}");
-                ex.Data["Errors"] = errors;
-                ex.Data["Warnings"] = warnings;
-                throw ex;
-            }
-            var bytes = codeStream.ToArray();
-            var asmData = new AssemblyData(bytes, new Dictionary<string, string> { { "ICqlMeasure", sourceCode } });
-            return asmData;
         }
 
         private AssemblyData CompileTuples(IEnumerable<KeyValuePair<string, Stream>> tupleStreams,

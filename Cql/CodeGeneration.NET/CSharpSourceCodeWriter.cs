@@ -118,39 +118,39 @@ namespace Hl7.Cql.CodeGeneration.NET
             bool defaultWriteFile(string nodeId) => true;
             writeFile ??= defaultWriteFile;
 
-            writeInterface(libraryNameToStream, closeStream);
+            //writeInterface(libraryNameToStream, closeStream);
 
             writeTupleTypes(tupleTypes, libraryNameToStream, closeStream);
 
             writeLibraries(definitions, dependencyGraph, libraryNameToStream, closeStream, writeFile!, libraryNameToClassName);
         }
 
-        private void writeInterface(Func<string, Stream> libraryNameToStream, bool closeStream)
-        {
-            var stream = libraryNameToStream("ICqlMeasure");
-            try
-            {
-                int indentLevel = 0;
-                using var writer = new StreamWriter(stream, Encoding.UTF8, 1024, leaveOpen: true);
-                WriteUsings(writer);
+        //private void writeInterface(Func<string, Stream> libraryNameToStream, bool closeStream)
+        //{
+        //    var stream = libraryNameToStream("ICqlMeasure");
+        //    try
+        //    {
+        //        int indentLevel = 0;
+        //        using var writer = new StreamWriter(stream, Encoding.UTF8, 1024, leaveOpen: true);
+        //        WriteUsings(writer);
 
-                writer.WriteLine(indentLevel, $"public interface ICqlMeasure");
-                writer.WriteLine(indentLevel, "{");
-                indentLevel += 1;
-                writer.WriteLine(indentLevel, $"IDictionary<string, object?> RunAll();");
-                writer.WriteLine(indentLevel, $"IDictionary<string, object?> RunPopulationOnly();");
-                writer.WriteLine(indentLevel, $"IDictionary<string, object?> Run();");
-                indentLevel -= 1;
-                writer.WriteLine(indentLevel, "}");
-            }
-            finally
-            {
-                if (closeStream && stream != null)
-                {
-                    stream.Close();
-                }
-            }
-        }
+        //        writer.WriteLine(indentLevel, $"public interface ICqlMeasure");
+        //        writer.WriteLine(indentLevel, "{");
+        //        indentLevel += 1;
+        //        writer.WriteLine(indentLevel, $"IDictionary<string, object?> RunAll();");
+        //        writer.WriteLine(indentLevel, $"IDictionary<string, object?> RunPopulationOnly();");
+        //        writer.WriteLine(indentLevel, $"IDictionary<string, object?> Run();");
+        //        indentLevel -= 1;
+        //        writer.WriteLine(indentLevel, "}");
+        //    }
+        //    finally
+        //    {
+        //        if (closeStream && stream != null)
+        //        {
+        //            stream.Close();
+        //        }
+        //    }
+        //}
 
         private void writeLibraries(DefinitionDictionary<LambdaExpression> definitions,
             DirectedGraph dependencyGraph,
@@ -272,8 +272,8 @@ namespace Hl7.Cql.CodeGeneration.NET
             var className = VariableNameGenerator.NormalizeIdentifier(libraryName);
             if (PartialClass)
                 writer.WriteLine(indentLevel, $"public partial class {className}");
-            else if (hasContext)
-                writer.WriteLine(indentLevel, $"public class {className} : ICqlMeasure");
+            //else if (hasContext)
+            //    writer.WriteLine(indentLevel, $"public class {className} : ICqlMeasure");
             else
                 writer.WriteLine(indentLevel, $"public class {className}");
 
@@ -337,11 +337,11 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                 WriteLibraryMembers(writer, dependencyGraph, libraryName, libraryNameToClassName!, indentLevel);
 
-                if (hasContext)
-                {
-                    writeICqlMeasureInterface(definitions, libraryName, writer, indentLevel);
-                    writer.WriteLine();
-                }
+                //if (hasContext)
+                //{
+                //    writeICqlMeasureInterface(definitions, libraryName, writer, indentLevel);
+                //    writer.WriteLine();
+                //}
 
                 writeMethods(definitions, libraryName, writer, indentLevel, hasContext, cacheLibraryName);
 
@@ -350,131 +350,131 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
         }
 
-        private void writeICqlMeasureInterface(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel)
-        {
-            var libDef = definitions.DefinitionsForLibrary(libraryName);
+        //private void writeICqlMeasureInterface(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel)
+        //{
+        //    var libDef = definitions.DefinitionsForLibrary(libraryName);
 
-            var populationDefines = new List<string>();
-            var allDefines = new List<string>();
-            var ipDefines = new Dictionary<string, Type>();
-            var exclusionDefines = new Dictionary<string, Type>();
+        //    var populationDefines = new List<string>();
+        //    var allDefines = new List<string>();
+        //    var ipDefines = new Dictionary<string, Type>();
+        //    var exclusionDefines = new Dictionary<string, Type>();
 
-            foreach (var kvp in libDef)
-            {
-                foreach (var overload in kvp.Value)
-                {
-                    definitions.TryGetTags(libraryName, kvp.Key, overload.Signature, out var tags);
-                    if (isDefinition(overload.T))
-                    {
-                        allDefines.Add(kvp.Key);
+        //    foreach (var kvp in libDef)
+        //    {
+        //        foreach (var overload in kvp.Value)
+        //        {
+        //            definitions.TryGetTags(libraryName, kvp.Key, overload.Signature, out var tags);
+        //            if (isDefinition(overload.T))
+        //            {
+        //                allDefines.Add(kvp.Key);
 
-                        if (kvp.Key == "Patient")
-                        {
-                            populationDefines.Add(kvp.Key);
-                        }
+        //                if (kvp.Key == "Patient")
+        //                {
+        //                    populationDefines.Add(kvp.Key);
+        //                }
 
-                        var popTag = tags?.FirstOrDefault(t => t.Key == "population");
-                        var groupTag = tags?.FirstOrDefault(t => t.Key == "group");
-                        if (popTag != null && groupTag != null)
-                        {
-                            var popTagValue = popTag.First();
-                            populationDefines.Add(kvp.Key);
+        //                var popTag = tags?.FirstOrDefault(t => t.Key == "population");
+        //                var groupTag = tags?.FirstOrDefault(t => t.Key == "group");
+        //                if (popTag != null && groupTag != null)
+        //                {
+        //                    var popTagValue = popTag.First();
+        //                    populationDefines.Add(kvp.Key);
 
-                            if (popTagValue == "initial-population")
-                            {
-                                ipDefines.Add(kvp.Key, overload.T.ReturnType);
-                            }
-                            else if (popTagValue == "denominator-exclusion")
-                            {
-                                exclusionDefines.Add(kvp.Key, overload.T.ReturnType);
-                            }
-                        }
-                    }
-                }
-            }
+        //                    if (popTagValue == "initial-population")
+        //                    {
+        //                        ipDefines.Add(kvp.Key, overload.T.ReturnType);
+        //                    }
+        //                    else if (popTagValue == "denominator-exclusion")
+        //                    {
+        //                        exclusionDefines.Add(kvp.Key, overload.T.ReturnType);
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
 
-            #region RunAll
-            writer.WriteLine(indentLevel, "public IDictionary<string, object> RunAll()");
-            writer.WriteLine(indentLevel, "{");
-            indentLevel += 1;
-            writer.WriteLine(indentLevel, "var result = new Dictionary<string, object>");
-            writer.WriteLine(indentLevel, "{");
-            indentLevel += 1;
-            foreach (var def in allDefines)
-            {
-                var methodName = VariableNameGenerator.NormalizeIdentifier(def);
-                writer.WriteLine(indentLevel, "{ " + $"\"{def}\", this.{methodName}()" + " },");
-            }
-            indentLevel -= 1;
-            writer.WriteLine(indentLevel, "};");
-            writer.WriteLine(indentLevel, "");
-            writer.WriteLine(indentLevel, "return result;");
-            indentLevel -= 1;
-            writer.WriteLine(indentLevel, "}");
-            #endregion
-            #region RunPopulationOnly
-            writer.WriteLine(indentLevel, "public IDictionary<string, object> RunPopulationOnly()");
-            writer.WriteLine(indentLevel, "{");
-            indentLevel += 1;
-            writer.WriteLine(indentLevel, "var result = new Dictionary<string, object>");
-            writer.WriteLine(indentLevel, "{");
-            indentLevel += 1;
-            foreach (var def in populationDefines)
-            {
-                var methodName = VariableNameGenerator.NormalizeIdentifier(def);
-                writer.WriteLine(indentLevel, "{ " + $"\"{def}\", this.{methodName}()" + " },");
-            }
-            indentLevel -= 1;
-            writer.WriteLine(indentLevel, "};");
-            writer.WriteLine(indentLevel, "");
-            writer.WriteLine(indentLevel, "return result;");
-            indentLevel -= 1;
-            writer.WriteLine(indentLevel, "}");
-            #endregion
-            #region Run
-            writer.WriteLine(indentLevel, "public IDictionary<string, object> Run()");
-            writer.WriteLine(indentLevel, "{");
-            indentLevel += 1;
+        //    #region RunAll
+        //    writer.WriteLine(indentLevel, "public IDictionary<string, object> RunAll()");
+        //    writer.WriteLine(indentLevel, "{");
+        //    indentLevel += 1;
+        //    writer.WriteLine(indentLevel, "var result = new Dictionary<string, object>");
+        //    writer.WriteLine(indentLevel, "{");
+        //    indentLevel += 1;
+        //    foreach (var def in allDefines)
+        //    {
+        //        var methodName = VariableNameGenerator.NormalizeIdentifier(def);
+        //        writer.WriteLine(indentLevel, "{ " + $"\"{def}\", this.{methodName}()" + " },");
+        //    }
+        //    indentLevel -= 1;
+        //    writer.WriteLine(indentLevel, "};");
+        //    writer.WriteLine(indentLevel, "");
+        //    writer.WriteLine(indentLevel, "return result;");
+        //    indentLevel -= 1;
+        //    writer.WriteLine(indentLevel, "}");
+        //    #endregion
+        //    #region RunPopulationOnly
+        //    writer.WriteLine(indentLevel, "public IDictionary<string, object> RunPopulationOnly()");
+        //    writer.WriteLine(indentLevel, "{");
+        //    indentLevel += 1;
+        //    writer.WriteLine(indentLevel, "var result = new Dictionary<string, object>");
+        //    writer.WriteLine(indentLevel, "{");
+        //    indentLevel += 1;
+        //    foreach (var def in populationDefines)
+        //    {
+        //        var methodName = VariableNameGenerator.NormalizeIdentifier(def);
+        //        writer.WriteLine(indentLevel, "{ " + $"\"{def}\", this.{methodName}()" + " },");
+        //    }
+        //    indentLevel -= 1;
+        //    writer.WriteLine(indentLevel, "};");
+        //    writer.WriteLine(indentLevel, "");
+        //    writer.WriteLine(indentLevel, "return result;");
+        //    indentLevel -= 1;
+        //    writer.WriteLine(indentLevel, "}");
+        //    #endregion
+        //    #region Run
+        //    writer.WriteLine(indentLevel, "public IDictionary<string, object> Run()");
+        //    writer.WriteLine(indentLevel, "{");
+        //    indentLevel += 1;
 
-            if (ipDefines.Any())
-            {
-                writer.WriteLine(indentLevel, "var hasIpTrue = false;");
-                foreach (var def in ipDefines)
-                {
-                    var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
-                    if (def.Value == typeof(bool) || def.Value == typeof(bool?))
-                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? false);");
-                    else if (def.Value == typeof(int) || def.Value == typeof(int?))
-                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? 0) > 0;");
-                    else
-                        writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}()?.Any() ?? false);");
-                }
-                writer.WriteLine(indentLevel, "if (!hasIpTrue) return new Dictionary<string, object>();");
-            }
+        //    if (ipDefines.Any())
+        //    {
+        //        writer.WriteLine(indentLevel, "var hasIpTrue = false;");
+        //        foreach (var def in ipDefines)
+        //        {
+        //            var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
+        //            if (def.Value == typeof(bool) || def.Value == typeof(bool?))
+        //                writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? false);");
+        //            else if (def.Value == typeof(int) || def.Value == typeof(int?))
+        //                writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}() ?? 0) > 0;");
+        //            else
+        //                writer.WriteLine(indentLevel, $"hasIpTrue = hasIpTrue || (this.{methodName}()?.Any() ?? false);");
+        //        }
+        //        writer.WriteLine(indentLevel, "if (!hasIpTrue) return new Dictionary<string, object>();");
+        //    }
 
-            if (exclusionDefines.Any())
-            {
-                writer.WriteLine(indentLevel, "var allExclusionsTrue = true;");
+        //    if (exclusionDefines.Any())
+        //    {
+        //        writer.WriteLine(indentLevel, "var allExclusionsTrue = true;");
 
-                foreach (var def in exclusionDefines)
-                {
-                    var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
-                    if (def.Value == typeof(bool) || def.Value == typeof(bool?))
-                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? false);");
-                    else if (def.Value == typeof(int) || def.Value == typeof(int?))
-                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? 0) > 0;");
-                    else
-                        writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}()?.Any() ?? false);");
-                }
-                writer.WriteLine(indentLevel, "if (allExclusionsTrue) return new Dictionary<string, object>();");
-            }
+        //        foreach (var def in exclusionDefines)
+        //        {
+        //            var methodName = VariableNameGenerator.NormalizeIdentifier(def.Key);
+        //            if (def.Value == typeof(bool) || def.Value == typeof(bool?))
+        //                writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? false);");
+        //            else if (def.Value == typeof(int) || def.Value == typeof(int?))
+        //                writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}() ?? 0) > 0;");
+        //            else
+        //                writer.WriteLine(indentLevel, $"allExclusionsTrue = allExclusionsTrue && (this.{methodName}()?.Any() ?? false);");
+        //        }
+        //        writer.WriteLine(indentLevel, "if (allExclusionsTrue) return new Dictionary<string, object>();");
+        //    }
 
-            writer.WriteLine(indentLevel, "");
-            writer.WriteLine(indentLevel, "return RunAll();");
-            indentLevel -= 1;
-            writer.WriteLine(indentLevel, "}");
-            #endregion
-        }
+        //    writer.WriteLine(indentLevel, "");
+        //    writer.WriteLine(indentLevel, "return RunAll();");
+        //    indentLevel -= 1;
+        //    writer.WriteLine(indentLevel, "}");
+        //    #endregion
+        //}
 
         private void writeMethods(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel, bool useLazy, string? cacheLibraryName)
         {
