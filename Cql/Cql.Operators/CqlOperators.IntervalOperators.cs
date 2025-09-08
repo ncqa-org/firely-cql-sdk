@@ -1971,10 +1971,8 @@ namespace Hl7.Cql.Runtime
 
         public bool? IntervalProperlyIncludedInInterval<T>(CqlInterval<T>? left, CqlInterval<T>? right, string precision)
         {
-            if (left == null)
+            if (left == null || right == null)
                 return null;
-            if (right == null)
-                return false;
 
             var min = Minimum<T>()!;
 
