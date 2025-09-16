@@ -47,6 +47,7 @@ namespace Hl7.Cql.Packaging
             var files = elmDir.GetFiles("*.json", SearchOption.AllDirectories);
             Parallel.ForEach(files, file =>
             {
+                Console.WriteLine($"Debugging: Building Elm.Library: {file.FullName}");
                 var library = Elm.Library.LoadFromJson(file);
                 if (library?.NameAndVersion != null)
                 {
