@@ -3788,5 +3788,18 @@ namespace CoreTests
         }
 
         #endregion
+
+        [TestMethod]
+        public void DurationBetweenDaysWithSameTime()
+        {
+            var rtx = GetNewContext();
+            var startDate = new CqlDate(2025, 1, 1);
+            var endDate = new CqlDate(2025, 1, 10);
+            int expected = 10;
+            var actual = rtx.Operators.DurationBetween(startDate, endDate, "day");
+            Assert.IsNotNull(actual);
+            Assert.AreEqual(expected, actual);
+        }
+
     }
 }
