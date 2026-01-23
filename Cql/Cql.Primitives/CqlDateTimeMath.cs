@@ -206,8 +206,7 @@ namespace Hl7.Cql.Primitives
                     return (int)(secondDto.Subtract(firstDto).TotalDays / DaysPerWeekDouble);
                 case "day":
                     var days = (int)secondDto.Subtract(firstDto).TotalDays;
-                    // Per https://cql.hl7.org/15-h-timeintervalcalculations.html,
-                    // If the greater date's time of the day is greater or equal to smaller date, include the end date as a full day
+                    // Per https://cql.hl7.org/15-h-timeintervalcalculations.html
                     if ((secondDto.Date >= firstDto.Date) && (secondDto.TimeOfDay >= firstDto.TimeOfDay))
                         days += 1;
                     return days;
