@@ -671,16 +671,16 @@ namespace Hl7.Cql.Runtime
                 .ToArray();
             if (nonNull.Length == 0)
                 return null;
-            decimal? product = 1;
+            decimal? sum = 0;
             string? unit = null;
             foreach (var v in nonNull)
             {
                 unit ??= (v!.unit ?? "1");
                 if (unit != v!.unit)
                     throw new NotSupportedException("Unlike units are not supported.");
-                product *= v.value!.Value;
+                sum += v.value!.Value;
             }
-            return new CqlQuantity(product, unit ?? "1");
+            return new CqlQuantity(sum, unit ?? "1");
         }
 
         #endregion

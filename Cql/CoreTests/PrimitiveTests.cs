@@ -3788,5 +3788,17 @@ namespace CoreTests
         }
 
         #endregion
+
+        [TestMethod]
+        public void SumQuantity()
+        {
+            var rtx = GetNewContext();
+            var inputSource = new List<CqlQuantity?> { new CqlQuantity(value: 1, unit: "day"), new CqlQuantity(value: 5, unit: "day") };
+            CqlQuantity expectedValue = new CqlQuantity(value: 6, unit: "day");
+            var computedValue = rtx.Operators.Sum(inputSource);
+
+            Assert.AreEqual(expectedValue.value, computedValue.value);
+            Assert.AreEqual(expectedValue.unit, computedValue.unit);
+        }
     }
 }
