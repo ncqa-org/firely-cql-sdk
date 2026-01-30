@@ -204,8 +204,12 @@ namespace Hl7.Cql.Primitives
                     return monthDiff;
                 case "week": 
                     return (int)(secondDto.Subtract(firstDto).TotalDays / DaysPerWeekDouble);
-                case "day": 
-                    return (int)secondDto.Subtract(firstDto).TotalDays;
+                case "day":
+                    var days = (int)secondDto.Subtract(firstDto).TotalDays;
+                    // Per https://cql.hl7.org/15-h-timeintervalcalculations.html
+                    if ((secondDto.Date >= firstDto.Date) && (secondDto.TimeOfDay >= firstDto.TimeOfDay))
+                        days += 1;
+                    return days;
                 case "hour": 
                     return (int)secondDto.Subtract(firstDto).TotalHours;
                 case "minute": 
