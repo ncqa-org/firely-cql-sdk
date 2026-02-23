@@ -15,6 +15,7 @@ using Hl7.Cql.Elm;
 using Hl7.Cql.Fhir;
 using Hl7.Cql.Graph;
 using Hl7.Cql.Iso8601;
+using Hl7.Cql.Primitives;
 using Hl7.Cql.Runtime;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,8 @@ using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Runtime.Loader;
 using System.Text;
+using AccessModifier = Hl7.Cql.Elm.AccessModifier;
+using FhirModelCode = Hl7.Fhir.Model.Code;
 using Elm = Hl7.Cql.Elm;
 using Library = Hl7.Fhir.Model.Library;
 
@@ -196,7 +199,7 @@ namespace Hl7.Cql.Packaging
                 if (!assemblies.TryGetValue(library.NameAndVersion, out var assembly))
                     throw new InvalidOperationException($"No assembly for {library.NameAndVersion}");
                 var builder = new ExpressionBuilder(operatorBinding, typeManager, library, builderLogger, new(false));
-                var fhirLibrary = createLibraryResource(elmFile, cqlFile, assembly, typeCrosswalk, canon, library);
+                var fhirLibrary = createLibraryResource(elmFile, cqlFile, assembly, typeCrosswalk, canon, library, elmLibraries);
                 libraries.Add(library.NameAndVersion, fhirLibrary);
             }
 
@@ -279,8 +282,9 @@ namespace Hl7.Cql.Packaging
                             && int.TryParse(yearAnnotation.value, out var measureYear))
                         {
                             var measure = new Measure();
-                            measure.Name = measureAnnotation.value;
-                            measure.Id = library.identifier?.id!.Replace('_','-');
+                            measure.Name = library.identifier?.id!;
+                            measure.Title = measureAnnotation.value;
+                            measure.Id = library.identifier?.id!.Replace('_', '-');
                             measure.Version = library.identifier?.version!;
                             measure.Status = PublicationStatus.Active;
                             measure.Date = new DateTimeIso8601(elmFile.LastWriteTimeUtc, Iso8601.DateTimePrecision.Millisecond)
@@ -296,7 +300,8 @@ namespace Hl7.Cql.Packaging
                                 throw new InvalidOperationException("Library NameAndVersion should not be null.");
                             if (!libraries.TryGetValue(library.NameAndVersion, out var libForMeasure) || libForMeasure is null)
                                 throw new InvalidOperationException($"We didn't create a measure for library {libForMeasure}");
-                            measure.Library = new List<string> { libForMeasure!.Url };
+                            measure.Library = new List<string> { $"{libForMeasure!.Url}|{libForMeasure!.Version}" };
+                            AnnotateMeasurePopulations(measure, library);
                             resources.Add(measure);
                         }
                     }
@@ -306,12 +311,129 @@ namespace Hl7.Cql.Packaging
             return resources;
         }
 
+        private static readonly Dictionary<string, string> Populations = new()
+        {
+        { "initial-population", "Initial Population" },
+        { "numerator", "Numerator" },
+        { "denominator", "Denominator" },
+        { "denominator-exclusion", "Denominator Exclusion" },
+        { "initial-population-commercial", "Initial Population Commercial" },
+        { "initial-population-exchange", "Initial Population Exchange" },
+        { "initial-population-medicare", "Initial Population Medicare" },
+        { "initial-population-medicaid", "Initial Population Medicaid" },
+        { "denominator-commercial", "Denominator Commercial" },
+        { "denominator-exchange", "Denominator Exchange" },
+        { "denominator-medicare", "Denominator Medicare" },
+        { "denominator-medicaid", "Denominator Medicaid" },
+        { "denominator-exclusion-commercial", "Denominator Exclusion Commercial" },
+        { "denominator-exclusion-exchange", "Denominator Exclusion Exchange" },
+        { "denominator-exclusion-medicare", "Denominator Exclusion Medicare" },
+        { "denominator-exclusion-medicaid", "Denominator Exclusion Medicaid" },
+        { "numerator-commercial", "Numerator Commercial" },
+        { "numerator-exchange", "Numerator Exchange" },
+        { "numerator-medicare", "Numerator Medicare" },
+        { "numerator-medicaid", "Numerator Medicaid" }
+        };
+        private static void AnnotateMeasurePopulations(Measure measure, Elm.Library library)
+        {
+            var defs = library.statements ?? Enumerable.Empty<Hl7.Cql.Elm.ExpressionDef>();
+            foreach (var def in defs)
+            {
+                var annotations = (def.annotation?
+                                      .OfType<Elm.Annotation>()
+                                      .SelectMany(a => a.t ?? Enumerable.Empty<Tag>())
+                                   ?? Enumerable.Empty<Tag>())
+                    .ToArray();
+                if (annotations.Length > 0)
+                {
+                    var groups = annotations
+                                 .Where(t => t.name == "group")
+                                 .ToArray();
+                    var populations = annotations
+                                      .Where(t => t.name == "population")
+                                      .ToArray();
+                    var productLine = annotations
+                        .FirstOrDefault(t => t.name == "productline");
+
+                    var tuples = from g in groups
+                                 from p in populations
+                                 select new { Group = g.value, Population = p.value };
+                    foreach (var tuple in tuples)
+                    {
+                        if (!Populations.ContainsKey(tuple.Population))
+                            throw new InvalidOperationException(
+                                $"Definition {def.name} has a @population annotation whose value is {tuple.Population}.  @population must be one of: {string.Join(", ", Populations.Keys)}");
+
+                        var rate = $"{tuple.Group}";
+                        var groupsForRate = measure.Group?
+                                                   .Where(g => g.ElementId == rate)
+                                                   .ToArray() ?? new Measure.GroupComponent[0];
+                        Measure.GroupComponent? group;
+                        if (groupsForRate.Length == 1)
+                        {
+                            group = groupsForRate[0];
+                        }
+                        else if (groupsForRate.Length == 0)
+                        {
+                            group = new Measure.GroupComponent
+                            {
+                                ElementId = rate,
+                                //Code = new CodeableConcept(rate, MeasureGroupCodeSystem),
+                                Description = $"Rate {tuple.Group}",
+                            };
+                            measure.Group!.Add(group);
+                        }
+                        else throw new InvalidOperationException($"Rate {rate} is defined twice for this measure.");
+
+                        var populationSuffix = productLine != null ? $"{tuple.Population}-{productLine.value}" : tuple.Population;
+                        var pop = $"{populationSuffix}";
+                        var populationsForGroup = group.Population
+                                                       .Where(p => p.ElementId == pop)
+                                                       .ToArray();
+                        Measure.PopulationComponent? population;
+                        if (populationsForGroup.Length == 1)
+                        {
+                            population = populationsForGroup[0];
+                        }
+                        else if (populationsForGroup.Length == 0)
+                        {
+                            population = new Measure.PopulationComponent
+                            {
+                                ElementId = pop,
+                                Code = new CodeableConcept
+                                {
+                                    Coding = new List<Coding>
+                                    {
+                                        new Coding
+                                        {
+                                            System = "http://terminology.hl7.org/CodeSystem/measure-population",
+                                            Code = populationSuffix,
+                                            Display = Populations[populationSuffix]
+                                        }
+                                    }
+                                },
+                                Description = Populations[tuple.Population],
+                                Criteria = new Hl7.Fhir.Model.Expression
+                                {
+                                    Language = "text/cql-identifier",
+                                    ExpressionElement = new FhirString(def.name)
+                                }
+                            };
+                            group.Population.Add(population);
+                        }
+                        else throw new InvalidOperationException($"Population {pop} is defined twice for this measure.");
+                    }
+                }
+            }
+        }
+
         private Hl7.Fhir.Model.Library createLibraryResource(FileInfo elmFile,
             FileInfo? cqlFile,
             AssemblyData assembly,
             CqlTypeToFhirTypeMapper typeCrosswalk,
             Func<string, string, string> canon,
-            Elm.Library? elmLibrary = null)
+            Elm.Library? elmLibrary = null,
+            Elm.Library[]? elmLibraries = null)
         {
             if (elmFile.Exists)
             {
@@ -337,6 +459,10 @@ namespace Hl7.Cql.Packaging
                 library.Name = elmLibrary!.identifier?.id!;
                 library.Status = PublicationStatus.Active;
                 library.Date = new DateTimeIso8601(elmFile.LastWriteTimeUtc, Iso8601.DateTimePrecision.Millisecond).ToString();
+                if (elmLibrary.contexts?.Any(context => nameof(ResourceType.Patient).Equals(context?.name)) ?? false)
+                {
+                    library.Subject = new CodeableConcept("http://hl7.org/fhir/resource-types", nameof(ResourceType.Patient));
+                }
                 var parameters = new List<ParameterDefinition>();
                 var inParams = elmLibrary.parameters?
                     .Select(pd => ElmParameterToFhir(pd, typeCrosswalk));
@@ -347,29 +473,93 @@ namespace Hl7.Cql.Packaging
                     .Select(def => ElmDefinitionToParameter(def, typeCrosswalk));
                 if (outParams is not null)
                     parameters.AddRange(outParams);
-                var valueSetParameterDefinitions = new List<ParameterDefinition>();
-                foreach (var valueSet in elmLibrary.valueSets ?? Enumerable.Empty<Elm.ValueSetDef>())
-                {
-                    var valueSetParameter = new ParameterDefinition
-                    {
-                        Type = FHIRAllTypes.ValueSet,
-                        Name = valueSet.id!,
-                        Use = OperationParameterUse.In,
-                    };
-                    valueSetParameterDefinitions.Add(valueSetParameter);
-                }
-                parameters.AddRange(valueSetParameterDefinitions);
+                //var valueSetParameterDefinitions = new List<ParameterDefinition>();
+                //foreach (var valueSet in elmLibrary.valueSets ?? Enumerable.Empty<Elm.ValueSetDef>())
+                //{
+                //    var valueSetParameter = new ParameterDefinition
+                //    {
+                //        Type = FHIRAllTypes.ValueSet,
+                //        Name = valueSet.id!,
+                //        Use = OperationParameterUse.In,
+                //    };
+                //    valueSetParameterDefinitions.Add(valueSetParameter);
+                //}
+                //parameters.AddRange(valueSetParameterDefinitions);
                 library.Parameter = parameters.Count > 0 ? parameters : null!;
 
+                List<RelatedArtifact> result = new List<RelatedArtifact>();
                 foreach (var include in elmLibrary?.includes ?? Enumerable.Empty<Elm.IncludeDef>())
                 {
-                    var includeId = $"{include.path}-{include.version}";
-                    library.RelatedArtifact.Add(new RelatedArtifact
+                    var includeId = $"{include.path}|{include.version}";
+                    var ra = new RelatedArtifact
                     {
+                        Display = $"Library {include.path}",
                         Type = RelatedArtifact.RelatedArtifactType.DependsOn,
-                        Resource = canon(includeId, "Library"),
-                    });
+                        Resource = canon(includeId.Replace("_","-"), "Library"),
+                    };
+                    if (!result.Any(r => r.IsExactly(ra)))
+                        result.Add(ra);
                 }
+                foreach (ValueSetDef include in elmLibrary?.valueSets ?? Enumerable.Empty<Elm.ValueSetDef>())
+                {
+                    var ra = new RelatedArtifact
+                    {
+                        Display = $"{FHIRAllTypes.ValueSet} {include.name}",
+                        Type = RelatedArtifact.RelatedArtifactType.DependsOn,
+                        Resource = include.id,
+                    };
+                    if (!result.Any(r => r.IsExactly(ra)))
+                        result.Add(ra);
+                }
+                var elmDir = elmFile.Directory;
+                foreach (var include in elmLibrary?.includes ?? Enumerable.Empty<Elm.IncludeDef>())
+                {
+                    var childElmLibrary = elmLibraries?.FirstOrDefault(lib => lib.NameAndVersion == $"{include.path}-{include.version}");
+                    //if (elmDir == null) continue;
+                    //// Try to find the included library file by path and version
+                    //string childFileName = !string.IsNullOrEmpty(include.version)
+                    //    ? $"{include.path}-{include.version}.json"
+                    //    : $"{include.path}.json";
+                    //var childElmFile = new FileInfo(Path.Combine(elmDir.FullName, childFileName));
+                    //if (!childElmFile.Exists)
+                    //{
+                    //    // Try fallback to just path.json if not found
+                    //    childElmFile = new FileInfo(Path.Combine(elmDir.FullName, $"{include.path}.json"));
+                    //}
+                    if (childElmLibrary is not null)
+                    {
+                        //var childElmLibrary = Elm.Library.LoadFromJson(childElmFile);
+                        if (childElmLibrary != null)
+                        {
+                            // Add RelatedArtifacts from child
+                            foreach (var childInclude in childElmLibrary.includes ?? Enumerable.Empty<Elm.IncludeDef>())
+                            {
+                                var childIncludeId = $"{childInclude.path}|{childInclude.version}";
+                                var childRa = new RelatedArtifact
+                                {
+                                    Display = $"Library {childInclude.path}",
+                                    Type = RelatedArtifact.RelatedArtifactType.DependsOn,
+                                    Resource = canon(childIncludeId.Replace("_", "-"), "Library"),
+                                };
+                                if (!result.Any(r => r.IsExactly(childRa)))
+                                    result.Add(childRa);
+                            }
+                            foreach (ValueSetDef childVs in childElmLibrary.valueSets ?? Enumerable.Empty<Elm.ValueSetDef>())
+                            {
+                                var childRa = new RelatedArtifact
+                                {
+                                    Display = $"{FHIRAllTypes.ValueSet} {childVs.name}",
+                                    Type = RelatedArtifact.RelatedArtifactType.DependsOn,
+                                    Resource = childVs.id,
+                                };
+                                if (!result.Any(r => r.IsExactly(childRa)))
+                                    result.Add(childRa);
+                            }
+                        }
+                    }
+                }
+                library.RelatedArtifact.AddRange(result);
+                library.RelatedArtifact.Sort((x, y) => string.Compare(x.Display, y.Display ?? "", StringComparison.Ordinal));
 
                 if (cqlFile!.Exists)
                 {
@@ -407,12 +597,12 @@ namespace Hl7.Cql.Packaging
                     }
 
                 }
-                library.Url = canon(library.Id,library.TypeName) !;
+                library.Url = canon(library.Name.Replace("_","-"), library.TypeName)!;
                 return library;
             }
             else throw new ArgumentException($"Couldn't find library {elmFile.FullName}", nameof(elmFile));
         }
-
+        
         private static readonly CodeableConcept LogicLibraryCodeableConcept = new CodeableConcept
         {
             Coding = new List<Coding>
@@ -474,28 +664,59 @@ namespace Hl7.Cql.Packaging
                 Max = "1",
                 Type = type.FhirType!,
             };
-            if (type.ElementType is not null && type.ElementType.FhirType is not null)
-            {
-                parameterDefinition.Extension = new List<Extension>()
-                {
-                    new Extension
-                    {
-                       Value = new Code<FHIRAllTypes>(type.ElementType.FhirType),
-                       Url = Constants.ParameterElementTypeExtensionUri
-                    }
-                };
-            }
 
-            if (definition.accessLevel == Elm.AccessModifier.Private)
+        AddParameterCqlTypeExtension(type, parameterDefinition);
+
+        if (definition.accessLevel == AccessModifier.Private)
+        {
+            parameterDefinition.Extension.Add(new Extension
             {
-                parameterDefinition.Extension.Add(new Extension
-                {
-                    Value = new Hl7.Fhir.Model.Code("private"),
-                    Url = Constants.ParameterAccessLevel,
-                });
-            }
+                Value = new FhirModelCode("private"),
+                Url = Constants.Hl7FhirStructureDefinitionCqlAccessModifier,
+            });
+        }
 
             return parameterDefinition;
         }
+        private static void AddParameterCqlTypeExtension(CqlTypeToFhirMapping type, ParameterDefinition parameterDefinition)
+        {
+            var cqlType = type.CqlType;
+            var cqlElementType = type.ElementType?.CqlType;
+            switch (cqlType)
+            {
+                case null:
+                    return;
+
+                case CqlPrimitiveType.List
+                    when type.ElementType?.FhirType is { } elementFhirType:
+                    parameterDefinition.Type = elementFhirType;
+                    parameterDefinition.Max = "*";
+                    break;
+            }
+
+            var cqlTypeName =
+                (cqlType, cqlElementType) switch
+                {
+                    // Don't show "generic" for List
+                    (CqlPrimitiveType.List, _) => cqlType.ToString(),
+
+                    // "Generic" display
+                    (_, CqlPrimitiveType.Fhir) => $"{cqlType}<{cqlElementType}.{type.ElementType!.FhirType}>",
+                    (_, { }) => $"{cqlType}<{cqlElementType}>",
+
+                    // Non-"Generic" display
+                    _ => cqlType.ToString(),
+                };
+
+            parameterDefinition.Extension = new List<Extension>
+            {
+                new Extension
+                {
+                    Url = Constants.Hl7FhirStructureDefinitionCqlType,
+                    Value = new FhirString(cqlTypeName),
+                }
+            };
+        }
     }
+
 }

@@ -33,7 +33,18 @@ namespace Hl7.Cql.Packaging.ResourceWriters
 
                 foreach (var resource in resources)
                 {
-                    var file = new FileInfo(Path.Combine(OutDirectory.FullName, $"{resource.Id}.json"));
+                    var nameAndVersion = resource.Id;
+                    if (resource is Library library)
+                    {
+                        nameAndVersion = $"{library.Name}-{library.Version}";
+                        Logger.LogInformation($"Processing {library.Name} ({library.Id})");
+                    }
+                    if (resource is Measure measure)
+                    {
+                        nameAndVersion = $"{measure.Name}-{measure.Version}";
+                        Logger.LogInformation($"Processing {measure.Name} ({measure.Id})");
+                    }
+                    var file = new FileInfo(Path.Combine(OutDirectory.FullName, $"{resource.TypeName}-{nameAndVersion}.json"));
                     Logger.LogInformation($"Writing {file.FullName}");
                     using var fs = new FileStream(file.FullName, FileMode.Create, FileAccess.Write, FileShare.Read);
                     JsonSerializer.Serialize(fs, resource, options);
