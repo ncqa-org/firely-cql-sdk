@@ -119,6 +119,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             identifier = identifier.Replace("'", "");
             identifier = identifier.Replace(";", "_");
             identifier = identifier.Replace("&", "and");
+            identifier = identifier.Replace("%", "percent");
 
 
             if (identifier.StartsWith("$"))
