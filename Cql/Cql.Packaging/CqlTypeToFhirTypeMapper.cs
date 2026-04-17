@@ -257,12 +257,11 @@ namespace Hl7.Cql.Packaging
             switch (resultTypeSpecifier)
             {
                 case IntervalTypeSpecifier interval:
-                    {
-                        if (interval.pointType is null)
-                            return null;
-                        var pointType = TypeEntryFor(interval.pointType);
-                        return TypeEntryFor(CqlPrimitiveType.Interval, pointType);
-                    }
+                    if (interval.pointType is null)
+                        return null;
+
+                    var pointType = TypeEntryFor(interval.pointType);
+                    return TypeEntryFor(CqlPrimitiveType.Interval, pointType);
                 case ListTypeSpecifier list:
                     if (list.elementType is null)
                         return null;
@@ -276,9 +275,8 @@ namespace Hl7.Cql.Packaging
                 case TupleTypeSpecifier:
                     return new CqlTypeToFhirMapping(FHIRAllTypes.Basic, CqlPrimitiveType.Tuple);
                 default:
-                    break;
+                    return null;
             }
-            return null;
         }
 
         /// <summary>

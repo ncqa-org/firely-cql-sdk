@@ -15,6 +15,7 @@ using Hl7.Cql.Elm;
 using Hl7.Cql.Fhir;
 using Hl7.Cql.Graph;
 using Hl7.Cql.Iso8601;
+using Hl7.Cql.Primitives;
 using Hl7.Cql.Runtime;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
@@ -434,14 +435,14 @@ namespace Hl7.Cql.Packaging
             if (typeSpecifier is null)
                 throw new ArgumentException($"{typeSpecifier} is missing on parameter: {elmParameter.name}", nameof(elmParameter));
             var type = typeCrosswalk.TypeEntryFor(typeSpecifier);
-            if (type is null || type.FhirType is null)
+            if (type?.FhirType is null)
                 throw new ArgumentException($"Unable to identify a valid FHIR type for this parameter.", nameof(elmParameter));
 
-            var annotations = (elmParameter.annotation?
-                .OfType<Elm.Annotation>()
-                .SelectMany(a => a.t ?? Enumerable.Empty<Tag>())
-                ?? Enumerable.Empty<Tag>())
-                .ToArray();
+            //var annotations = (elmParameter.annotation?
+            //    .OfType<Elm.Annotation>()
+            //    .SelectMany(a => a.t ?? Enumerable.Empty<Tag>())
+            //    ?? Enumerable.Empty<Tag>())
+            //    .ToArray();
 
             var parameterDefinition = new ParameterDefinition
             {
@@ -466,6 +467,7 @@ namespace Hl7.Cql.Packaging
             var type = typeCrosswalk.TypeEntryFor(resultTypeSpecifier);
             if (type is null || type.FhirType is null)
                 throw new ArgumentException($"Unable to identify a valid FHIR type for this definition.", nameof(definition));
+            
             var parameterDefinition = new ParameterDefinition
             {
                 Name = definition.name!,
@@ -474,14 +476,23 @@ namespace Hl7.Cql.Packaging
                 Max = "1",
                 Type = type.FhirType!,
             };
-            if (type.ElementType is not null && type.ElementType.FhirType is not null)
+
+            if (
+                type is
+                {
+                    CqlType: { } cqlType and CqlPrimitiveType.List,
+                    ElementType.FhirType: { } elementFhirType
+                })
             {
-                parameterDefinition.Extension = new List<Extension>()
+                parameterDefinition.Type = elementFhirType;
+                parameterDefinition.Max = "*";
+
+                parameterDefinition.Extension = new List<Extension>() 
                 {
                     new Extension
                     {
-                       Value = new Code<FHIRAllTypes>(type.ElementType.FhirType),
-                       Url = Constants.ParameterElementTypeExtensionUri
+                        Url = Constants.ParameterElementTypeExtensionUri,
+                        Value = new FhirString(cqlType.ToString()),// e.g. List
                     }
                 };
             }
