@@ -16,11 +16,11 @@ namespace Hl7.Cql.Compiler
     internal class Hasher
     {
 
-        private MD5 MD5 { get; } = MD5.Create();
+        private SHA256 SHA256 { get; } = SHA256.Create();
         public virtual string Hash(string input)
         {
             var bytes = Encoding.UTF8.GetBytes(input);
-            var hashBytes = MD5.ComputeHash(bytes);
+            var hashBytes = SHA256.ComputeHash(bytes);
             var alpha = ToAlphaString(hashBytes);
             return alpha;
         }
