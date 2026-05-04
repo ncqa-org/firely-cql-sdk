@@ -13,10 +13,6 @@
 VSWorkspaceState.json
 .vs/
 *.snk
-.idea/
-
-# ReSharper Settings
-*.DotSettings.user
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
@@ -395,33 +391,12 @@ VSCodeExtension/ncqa-cql-engine/dist/*.map
 VSCodeExtension/ncqa-cql-engine-workspace/test/*/*/bundles/*.json
 VSCodeExtension/ncqa-cql-engine-workspace/test/*/*/results/*.json
 /Demo/Test/Resources
+/Demo/Elm/build.txt
 /Demo/Cql/Build/target/**/*.*
+/Demo/build.txt
 
-# We don't include Resources, because compiling the same C# code does not generate a deterministic binary, so it becomes very noise when they are included in the Resources
-/LibrarySets/**/Resources/**/*.*
-*.bak
-*.dat
+# JetBrains 
+.idea
 
-#remove results generated from vs-code CQL extension
-/Demo/**/input/tests/results/*.*
-
-#remove resources generated measures projects
-/Demo/**/Resources/*.*
-
-#remove global.json for testing dotnet sdk updates
-global.json
-
-# remove compressed files
-*.zip
-
-# remove lock files and directories
-*.lock
-*.lock.d/
-LibrarySets/Demo/ElmOut/
-
-# Example output directories
-Examples/**/output/
-
-# Spec source files (original HTML with CSS/JS/images, ~40MB)
-spec/source/*
-!spec/source/README.md
+# MacOS X 
+.DS_Store

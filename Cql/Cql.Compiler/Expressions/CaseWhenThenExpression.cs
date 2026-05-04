@@ -1,12 +1,17 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
-namespace Hl7.Cql.Compiler.Expressions
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+
+namespace Hl7.Cql.Compiler
 {
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 
@@ -22,7 +27,8 @@ namespace Hl7.Cql.Compiler.Expressions
             {
                 if (When == when && Then == then)
                     return this;
-                return new WhenThenCase(when, then);
+                else
+                    return new WhenThenCase(when, then);
             }
         }
 
@@ -57,9 +63,9 @@ namespace Hl7.Cql.Compiler.Expressions
                 if (then.Type != els.Type)
                 {
                     if (then.Type.IsAssignableFrom(els.Type))
-                        els = els.NewAssignToTypeExpression(then.Type);
+                        els = Convert(els, then.Type);
                     else if (els.Type.IsAssignableFrom(then.Type))
-                        then = then.NewAssignToTypeExpression(els.Type);
+                        then = Convert(then, els.Type);
                     // Else: expect Condition factory below to fail.
                 }
 
@@ -76,9 +82,10 @@ namespace Hl7.Cql.Compiler.Expressions
 
         public Expression Update(IReadOnlyCollection<WhenThenCase> whenThenCases, Expression elseCase)
         {
-            if (WhenThenCases.SequenceEqual(whenThenCases) && ElseCase == elseCase)
+            if (Enumerable.SequenceEqual(WhenThenCases, whenThenCases) && ElseCase == elseCase)
                 return this;
-            return new CaseWhenThenExpression(whenThenCases, elseCase);
+            else
+                return new CaseWhenThenExpression(whenThenCases, elseCase);
         }
 
         public override Type Type => ElseCase.Type;

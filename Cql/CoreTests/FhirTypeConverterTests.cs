@@ -1,20 +1,13 @@
-﻿/*
- * Copyright (c) 2025, Firely, NCQA and contributors
- * See the file CONTRIBUTORS for details.
- *
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
- */
-
+﻿using Hl7.Cql.Conversion;
 using Hl7.Cql.Iso8601;
 using Hl7.Cql.Primitives;
 using Hl7.Fhir.Model;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using static Hl7.Fhir.Model.Parameters;
 
 namespace CoreTests
 {
-    using TypeConverter = Hl7.Cql.Conversion.TypeConverter;
-
     [TestClass]
     [TestCategory("UnitTest")]
     public class FhirTypeConverterTests
@@ -305,12 +298,14 @@ namespace CoreTests
             var parameters = new ParameterComponent()
             {
                 Name = "param1",
-                Value = new Time(new TimeIso8601(1, 1, 1, 1, null, null, false).ToString()),
+                Value = new Time(new Hl7.Cql.Iso8601.TimeIso8601(1, 1, 1, 1, 0, 0, false).ToString()),
             };
 
             var converted = FhirTypeConverter.Convert<CqlTime>(parameters);
 
             Assert.IsNotNull(converted);
+
+            Assert.IsTrue(converted is CqlTime);
 
             Assert.AreEqual(1, converted.Value.Hour);
             Assert.AreEqual(1, converted.Value.Minute);

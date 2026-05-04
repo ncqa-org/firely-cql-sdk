@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<Import Project="..\..\cql-sdk.props" />
+
+	<PropertyGroup>
+		<AssemblyName>Hl7.Cql.Primitives</AssemblyName>
+		<RootNamespace>Hl7.Cql.Primitives</RootNamespace>
+		<Product>CQL primitive types</Product>
+		<Description>Support package for Hl7.Cql. Contains .NET types that model the System namespace in CQL.</Description>
+		<NoWarn>CS8601</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Cql.Abstractions\Cql.Abstractions.csproj" />
+		<ProjectReference Include="..\Iso8601\Iso8601.csproj" />
+		<PackageReference Include="System.Globalization" Version="4.3.0" />
+		<PackageReference Remove="Microsoft.CodeAnalysis.PublicApiAnalyzers" />
+	</ItemGroup>
+
+</Project>

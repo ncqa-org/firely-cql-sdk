@@ -7,44 +7,67 @@
 		<RootNamespace>Hl7.Cql.Compiler</RootNamespace>
 		<Product>CQL measure compiler</Product>
 		<Description>Support package for Hl7.Cql. Translates ELM into C# expression trees and can emit those expression trees into either runtime Delegates or C# source code.</Description>
-		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.1" />
+	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\Cql.Logging\Cql.Logging.csproj" />
 		<ProjectReference Include="..\Cql.Model\Cql.Model.csproj" />
+		<ProjectReference Include="..\Cql.Operators\Cql.Operators.csproj" />
+		<ProjectReference Include="..\Cql.ValueSets\Cql.ValueSets.csproj" />
 		<ProjectReference Include="..\Cql.Runtime\Cql.Runtime.csproj" />
-		<ProjectReference Include="..\Elm\Elm.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
+		<ProjectReference Include="..\ELM\Elm.csproj" />
 		<InternalsVisibleTo Include="Hl7.Cql.CodeGeneration.NET" Key="$(LibraryPKHash)" />
 		<InternalsVisibleTo Include="Hl7.Cql.Packager" Key="$(LibraryPKHash)" />
 		<InternalsVisibleTo Include="CoreTests" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="Test.Measures.Demo" Key="$(LibraryPKHash)" />
 		<InternalsVisibleTo Include="Hl7.Cql.Packaging" Key="$(LibraryPKHash)" />
 		<InternalsVisibleTo Include="Hl7.Cql" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="Hl7.Cql.Invocation" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="CqlToElmTests" Key="$(LibraryPKHash)" />
+		<InternalsVisibleTo Include="Hl7.Cql.CqlToElm.Test" Key="$(LibraryPKHash)" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.11.0-beta1.24318.1" PrivateAssets="All" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<Compile Update="CqlOperatorsBinder.*.cs">
-			<DependentUpon>CqlOperatorsBinder.cs</DependentUpon>
+		<Compile Update="ExpressionBuilder.AggregateFunctions.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
 		</Compile>
-		<Compile Update="ExpressionBuilderContext.*.cs">
-			<DependentUpon>ExpressionBuilderContext.cs</DependentUpon>
+		<Compile Update="ExpressionBuilder.ArithmeticOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
 		</Compile>
-		<Compile Update="LibraryExpressionBuilderContext.*.cs">
-			<DependentUpon>LibraryExpressionBuilderContext.cs</DependentUpon>
+		<Compile Update="ExpressionBuilder.ClinicalOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
 		</Compile>
-		<Compile Update="LibrarySetExpressionBuilderContext.*.cs">
-			<DependentUpon>LibrarySetExpressionBuilderContext.cs</DependentUpon>
+		<Compile Update="ExpressionBuilder.ComparisonOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.DateAndTimeOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.ErrorsAndMessaging.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.IntervalOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.ListOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.LogicalOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.NullologicalOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.StringOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.TypeOperators.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
+		</Compile>
+		<Compile Update="ExpressionBuilder.Types.cs">
+			<DependentUpon>ExpressionBuilder.cs</DependentUpon>
 		</Compile>
 	</ItemGroup>
-
 </Project>

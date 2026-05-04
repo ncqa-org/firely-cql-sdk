@@ -1,8 +1,8 @@
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
-/*
+/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
@@ -11,6 +11,8 @@ using Hl7.Cql.Runtime;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
+using Hl7.FhirPath.Sprache;
+using System.Reflection;
 
 namespace Hl7.Cql.Fhir
 {
@@ -18,22 +20,21 @@ namespace Hl7.Cql.Fhir
     {
         public static readonly FhirTypeResolver Default = new FhirTypeResolver(ModelInfo.ModelInspector);
 
-        /// <nodoc />
-        public FhirTypeResolver(ModelInspector inspector)
+        internal FhirTypeResolver(ModelInspector inspector)
         {
             Inspector = inspector;
 
-            AddTypesFromInspector();
+            addTypesFromInspector();
             // Fix lack of inheritance in the SDK
             adjust();
         }
 
-        internal override bool IsListType(Type type)
+        public override bool ImplementsGenericInterface(Type type, Type genericInterfaceTypeDefinition)
         {
-            if (type.GetCustomAttribute<FhirTypeAttribute>() != null)
+            if (genericInterfaceTypeDefinition == typeof(IEnumerable<>)
+                && type.GetCustomAttribute<FhirTypeAttribute>() != null)
                 return false;
-
-            return base.IsListType(type);
+            return base.ImplementsGenericInterface(type, genericInterfaceTypeDefinition);
         }
 
 
@@ -54,12 +55,9 @@ namespace Hl7.Cql.Fhir
         protected override PropertyInfo? GetPropertyCore(Type type, string propertyName)
         {
             PropertyInfo? result = null;
-
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Code<>) && propertyName == "value")
             {
-                // Note the DeclaredOnly here, which is important to get to the Code<T>.Value property,
-                // not the inherited PrimitiveType.Value property.
-                result = type.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+                result = ReflectionHelper.FindProperty(type, "Value");
             }
             else
             {
@@ -73,8 +71,8 @@ namespace Hl7.Cql.Fhir
                     else
                     {
                         var propMapping = cm.FindMappedElementByName(propertyName);
-                        if (propMapping is { NativeProperty: { } nativeProperty })
-                            result = new FhirModelPropertyInfo(nativeProperty, propMapping);
+                        if (propMapping is not null)
+                            result = new FhirModelPropertyInfo(propMapping.NativeProperty, propMapping);
                     }
                 }
                 else
@@ -125,9 +123,19 @@ namespace Hl7.Cql.Fhir
             Types["{http://hl7.org/fhir}MoneyQuantity"] = Types["{http://hl7.org/fhir}Quantity"];
         }
 
-        private void AddTypesFromInspector()
+        private void addTypesFromInspector()
         {
-            var classes = Inspector.ClassMappings.Select(cm => ($"{{http://hl7.org/fhir}}{cm.Name}", cm.NativeType));
+            var classes = Inspector.ClassMappings.Select(cm => (getTypeSpecFromMapping(cm), cm.NativeType));
+
+            static string getTypeSpecFromMapping(ClassMapping cm)
+            {
+                string fhirPrefix = "{http://hl7.org/fhir}";
+                return cm.IsBackboneType switch
+                {
+                    false => fhirPrefix + cm.Name,
+                    true => fhirPrefix + cm.DefinitionPath
+                };
+            }
 
             // Ignore the valuesets, we have to resolve via bindings for now.
             foreach (var (name, type) in classes)

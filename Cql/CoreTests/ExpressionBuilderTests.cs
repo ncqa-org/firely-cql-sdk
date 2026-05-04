@@ -1,187 +1,99 @@
-/*
- * Copyright (c) 2025, Firely, NCQA and contributors
- * See the file CONTRIBUTORS for details.
- *
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
- */
-
-using Hl7.Cql.CodeGeneration.NET;
-using Hl7.Cql.CodeGeneration.NET.Toolkit;
-using Hl7.Cql.CodeGeneration.NET.Toolkit.Extensions;
-using Hl7.Cql.CodeGeneration.NET.Toolkit.Internal;
-using Hl7.Fhir.Model;
+using Hl7.Cql.Abstractions;
 using Hl7.Cql.Compiler;
-using Hl7.Cql.CqlToElm;
-using Hl7.Cql.CqlToElm.Toolkit;
-using Hl7.Cql.CqlToElm.Toolkit.Extensions;
+using Hl7.Cql.Conversion;
 using Hl7.Cql.Fhir;
-using Hl7.Cql.Invocation.Toolkit;
-using Hl7.Cql.Invocation.Toolkit.Extensions;
-using Hl7.Cql.Runtime.Hosting;
-using Library = Hl7.Cql.Elm.Library;
+using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+using System.IO;
 
 namespace CoreTests
 {
     [TestClass]
-    public class LibraryExpressionBuilderTests
+    public class ExpressionBuilderTests
     {
-        private static ServiceProvider BuildServiceProvider() => ElmToolkitServices.AddCqlCompilerServices(new ServiceCollection().AddDebugLogging()).BuildServiceProvider(validateScopes: true);
+        private static readonly TypeResolver TypeResolver = new FhirTypeResolver(Hl7.Fhir.Model.ModelInfo.ModelInspector);
+        private static readonly TypeConverter TypeConverter = FhirTypeConverter.Create(Hl7.Fhir.Model.ModelInfo.ModelInspector);
+
+        private ILogger<ExpressionBuilder> CreateLogger() => LoggerFactory
+            .Create(logging => logging.AddDebug())
+            .CreateLogger<ExpressionBuilder>();
 
         [TestMethod]
         public void AggregateQueries_1_0_0()
         {
-            using var serviceProvider = BuildServiceProvider();
-            using var servicesScope = serviceProvider.CreateScope();
-            var elm = new FileInfo(Path.Combine("Input", "ELM", "Test", "Aggregates-1.0.0.json"));
+            var binding = new CqlOperatorsBinding(TypeResolver, TypeConverter);
+            var typeManager = new TypeManager(TypeResolver);
+            var elm = new FileInfo(@"Input\ELM\Test\Aggregates-1.0.0.json");
             var elmPackage = Hl7.Cql.Elm.Library.LoadFromJson(elm);
-            var definitions = servicesScope.ServiceProvider.GetRequiredService<LibraryExpressionBuilder>().ProcessLibrary(elmPackage);
-            Assert.IsNotNull(definitions);
-            Assert.IsTrue(definitions.Libraries.Any());
+            var logger = CreateLogger();
+            var eb = new ExpressionBuilder(binding, typeManager, elmPackage, logger);
+            var expressions = eb.Build();
         }
 
         [TestMethod]
-        public void FHIRConversionTest_1_0_0()
+        public void FHIRTypeConversionTest_1_0_0()
         {
-            using var serviceProvider = BuildServiceProvider();
-            using var servicesScope = serviceProvider.CreateScope();
-            var elm = new FileInfo(Path.Combine("Input", "ELM", "HL7", "FHIRConversionTest.json"));
+            var binding = new CqlOperatorsBinding(TypeResolver, TypeConverter);
+            var typeManager = new TypeManager(TypeResolver);
+            var elm = new FileInfo(@"Input\ELM\HL7\FHIRTypeConversionTest.json");
             var elmPackage = Hl7.Cql.Elm.Library.LoadFromJson(elm);
-            var definitions = servicesScope.ServiceProvider.GetRequiredService<LibraryExpressionBuilder>().ProcessLibrary(elmPackage);
-            Assert.IsNotNull(definitions);
-            Assert.IsTrue(definitions.Libraries.Any());
+            var logger = CreateLogger();
+            var eb = new ExpressionBuilder(binding, typeManager, elmPackage, logger);
+            var expressions = eb.Build();
+            Assert.IsNotNull(expressions);
         }
 
         [TestMethod]
         public void QueriesTest_1_0_0()
         {
-            using var serviceProvider = BuildServiceProvider();
-            using var servicesScope = serviceProvider.CreateScope();
-            var elm = new FileInfo(Path.Combine("Input", "ELM", "Test", "QueriesTest-1.0.0.json"));
+            var binding = new CqlOperatorsBinding(TypeResolver, TypeConverter);
+            var typeManager = new TypeManager(TypeResolver);
+            var elm = new FileInfo(@"Input\ELM\Test\QueriesTest-1.0.0.json");
             var elmPackage = Hl7.Cql.Elm.Library.LoadFromJson(elm);
-            var definitions = servicesScope.ServiceProvider.GetRequiredService<LibraryExpressionBuilder>().ProcessLibrary(elmPackage);
-            Assert.IsNotNull(definitions);
-            Assert.IsTrue(definitions.Libraries.Any());
+            var logger = CreateLogger();
+            var eb = new ExpressionBuilder(binding, typeManager, elmPackage, logger);
+            var expressions = eb.Build();
         }
 
         // https://github.com/FirelyTeam/firely-cql-sdk/issues/129
         [TestMethod]
         public void Medication_Request_Example_Test()
         {
-            using var serviceProvider = BuildServiceProvider();
-            using var servicesScope = serviceProvider.CreateScope();
-            FileInfo[] files =
-            [
-                new(Path.Combine("Input", "ELM", "Test", "Medication_Request_Example.json")),
-                new(Path.Combine("Input", "ELM", "Libs", "FHIRHelpers-4.0.1.json"))
-            ];
-            var librarySet = new LibrarySet();
-            librarySet.LoadLibraries(files);
+            var binding = new CqlOperatorsBinding(TypeResolver, TypeConverter);
+            var typeManager = new TypeManager(TypeResolver);
+            var elm = new FileInfo(@"Input\ELM\Test\Medication_Request_Example.json");
+            var elmPackage = Hl7.Cql.Elm.Library.LoadFromJson(elm);
+            var logger = CreateLogger();
+            var eb = new ExpressionBuilder(binding, typeManager, elmPackage, logger);
 
-            var librarySetExpressionBuilder = servicesScope.ServiceProvider.GetRequiredService<LibrarySetExpressionBuilder>();
-            var definitions = librarySetExpressionBuilder.ProcessLibrarySet(librarySet);
-            Assert.IsNotNull(definitions);
-            Assert.IsTrue(definitions.Libraries.Any());
+            var fdt = new FhirDateTime(2023, 12, 11, 9, 41, 30, TimeSpan.FromHours(-5));
+            var fdts = fdt.ToString();
+            var fs = new FhirDateTime(fdts);
+            Assert.AreEqual(fdt, fs);
+
+            var expressions = eb.Build();
+            Assert.IsNotNull(expressions);
         }
+
 
         [TestMethod]
-        public void ObservationStatus_Test()
+        public void Get_Property_Uses_TypeResolver()
         {
-            // Arrange
-            using var serviceProvider = BuildServiceProvider();
-            using var servicesScope = serviceProvider.CreateScope();
+            var binding = new CqlOperatorsBinding(TypeResolver, TypeConverter);
+            var typeManager = new TypeManager(TypeResolver);
+            var logger = CreateLogger();
+            var lib = new Hl7.Cql.Elm.Library
+            {
+                identifier = new Hl7.Cql.Elm.VersionedIdentifier()
+            };
+            var eb = new ExpressionBuilder(binding, typeManager, lib, logger);
 
-            var libraryString = CqlLibraryString.Parse("""
-               library CreateObservation version '1.0.0'
-
-               using FHIR version '4.0.1'
-
-               define newObservation:
-                   Observation {
-                       status: FHIR.ObservationStatus { value: 'final' }
-                   }
-               """);
-            var elmLibrary = CreateElmLibrary(libraryString);
-
-            // Act
-            var definitions = servicesScope.ServiceProvider
-                                           .GetRequiredService<LibraryExpressionBuilder>()
-                                           .ProcessLibrary(elmLibrary);
-            // Assert
-            Assert.IsNotNull(definitions);
-            Assert.IsTrue(definitions.Libraries.Any());
-
-            var result = InvokeLibrary(elmLibrary, "newObservation");
-            Assert.IsNotNull(result);
-            Assert.IsInstanceOfType<Observation>(result);
-            var observation = (Observation)result;
-            Assert.AreEqual(ObservationStatus.Final, observation.Status);
+            var property = eb.GetProperty(typeof(MeasureReport.PopulationComponent), "id");
+            Assert.AreEqual(typeof(Element), property.DeclaringType);
+            Assert.AreEqual(nameof(Element.ElementId), property.Name);
         }
 
-        [TestMethod]
-        public void AdministrativeGender_Test()
-        {
-            // Arrange
-            using var serviceProvider = BuildServiceProvider();
-            using var servicesScope = serviceProvider.CreateScope();
-
-            var libraryString = CqlLibraryString.Parse("""
-               library CreatePatient version '1.0.0'
-
-               using FHIR version '4.0.1'
-
-               define newPatient:
-                   Patient {
-                       gender: FHIR.AdministrativeGender { value: 'female' }
-                   }
-               """);
-            var elmLibrary = CreateElmLibrary(libraryString);
-
-            // Act
-            var definitions = servicesScope.ServiceProvider
-                                           .GetRequiredService<LibraryExpressionBuilder>()
-                                           .ProcessLibrary(elmLibrary);
-            // Assert
-            Assert.IsNotNull(definitions);
-            Assert.IsTrue(definitions.Libraries.Any());
-
-            var result = InvokeLibrary(elmLibrary, "newPatient");
-            Assert.IsNotNull(result);
-            Assert.IsInstanceOfType<Patient>(result);
-            var patient = (Patient)result;
-            Assert.AreEqual(AdministrativeGender.Female, patient.Gender);
-        }
-
-        private static Library CreateElmLibrary(CqlLibraryString libraryString)
-        {
-            var cqlToolkitConfig = new CqlToolkitConfig([CqlModel.ElmR1, CqlModel.Fhir401]);
-            var cqlToolkit = new CqlToolkit(config: cqlToolkitConfig)
-                             .AddCqlLibraries([libraryString])
-                             .TranslateToElm();
-            var elmLibrary = cqlToolkit.GetCqlToolkitResults().First().elmLibrary;
-
-            return elmLibrary;
-        }
-
-        private static object InvokeLibrary(Library elmLibrary, string definition)
-        {
-            var elmToolkit = new ElmToolkit()
-                            .AddElmLibraries([elmLibrary])
-                            .CompileToAssemblies();
-
-            var (libraryIdentifier, _, _, assemblyBinary, debugSymbols) = elmToolkit.GetElmToAssemblyResults().First();
-            var assembly = new AssemblyBinary(assemblyBinary, debugSymbols);
-
-            var invoker = new InvocationToolkit()
-                           .AddAssemblyBinaries([assembly])
-                           .CreateLibrarySetInvoker();
-
-            var result = invoker.InvokeLibraryDefinition(
-                FhirCqlContext.ForBundle(),
-                libraryIdentifier,
-                definition);
-
-            return result;
-        }
     }
 }

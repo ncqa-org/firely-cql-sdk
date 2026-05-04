@@ -1,22 +1,28 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
+using Microsoft.CodeAnalysis.CSharp;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+
 namespace Hl7.Cql.CodeGeneration.NET
 {
-    internal sealed class VariableNameGenerator
+    internal class VariableNameGenerator
     {
-        private readonly object _syncRoot = new();
-        private readonly List<char> _letters = [(char)('a' - 1)];
-        private readonly string _prefix = string.Empty;
-
-        private string Postfix { get; }
+        private readonly object SyncRoot = new();
+        public string Postfix { get; }
 
         private List<string> Reserved { get; }
+
+        private readonly List<char> Letters = new() { (char)('a' - 1) };
+        private readonly string Prefix = string.Empty;
+
 
         /// <summary>
         /// Create a new VariableNameGenerator with an (optional) set of extra reserved variable names
@@ -29,61 +35,103 @@ namespace Hl7.Cql.CodeGeneration.NET
         }
 
         /// <inheritdoc cref="ForNewScope(IEnumerable{ParameterExpression}?)"/>
-        private VariableNameGenerator ForNewScope(IEnumerable<string>? scopeNames)
+        public VariableNameGenerator ForNewScope(IEnumerable<string>? scopeNames)
         {
-            var newGenerator = new VariableNameGenerator(_letters, Reserved.Concat(scopeNames ?? []), Postfix);
+            var newGenerator = new VariableNameGenerator(Letters, Reserved.Concat(scopeNames ?? Enumerable.Empty<string>()), Postfix);
             return newGenerator;
         }
 
         public VariableNameGenerator(IEnumerable<string>? reserved = null, string postfix = "")
         {
-            Reserved = reserved?.ToList() ?? [];
+            Reserved = reserved?.ToList() ?? new List<string>();
             Postfix = postfix;
         }
 
-        private VariableNameGenerator(List<char> state, IEnumerable<string>? reserved = null, string postfix = "")
+        public VariableNameGenerator(IEnumerable<ParameterExpression> reserved, string postfix = "") :
+            this(reserved.Where(p => p.Name is not null).Select(p => p.Name!), postfix)
         {
-            Reserved = reserved?.ToList() ?? [];
-            Postfix = postfix;
-            _letters = state;
+            // Nothing           
         }
 
-        public string Next()
+        internal VariableNameGenerator(List<char> state, IEnumerable<string>? reserved = null, string postfix = "")
         {
-            lock (_syncRoot)
+            Reserved = reserved?.ToList() ?? new List<string>();
+            Postfix = postfix;
+            Letters = state;
+        }
+
+        public virtual string Next()
+        {
+            lock (SyncRoot)
             {
                 string vn = "";
                 do
                 {
-                    var lastIndex = _letters.Count - 1;
-                    var next = (char)(_letters[lastIndex] + 1);
+                    var lastIndex = Letters.Count - 1;
+                    var next = (char)(Letters[lastIndex] + 1);
                     if (next > 'z')
                     {
                         next = 'a';
-                        _letters[lastIndex] = next;
-                        if (_letters.Count > 1)
+                        Letters[lastIndex] = next;
+                        if (Letters.Count > 1)
                         {
-                            if (_letters[0] == 'z')
+                            if (Letters[0] == 'z')
                             {
-                                _letters.Insert(0, 'a');
+                                Letters.Insert(0, 'a');
                             }
                             else
                             {
-                                _letters[0] = (char)(_letters[0] + 1);
+                                Letters[0] = (char)(Letters[0] + 1);
                             }
                         }
-                        else _letters.Insert(0, 'a');
+                        else Letters.Insert(0, 'a');
                     }
                     else
                     {
-                        _letters[lastIndex] = next;
+                        Letters[lastIndex] = next;
                     }
-                    vn = $"{_prefix}{new string(_letters.ToArray())}{Postfix}";
+                    vn = $"{Prefix}{new string(Letters.ToArray())}{Postfix}";
                 }
                 while (Reserved.Contains(vn) || SyntaxFacts.GetKeywordKind(vn) != SyntaxKind.None);
 
                 return vn;
             }
+        }
+
+        public static string? NormalizeIdentifier(string? identifier)
+        {
+            if (identifier == null)
+                return null;
+
+            identifier = identifier.Replace(" ", "_");
+            identifier = identifier.Replace("-", "_");
+            identifier = identifier.Replace(".", "_");
+            identifier = identifier.Replace(",", "_");
+            identifier = identifier.Replace("[", "_");
+            identifier = identifier.Replace("]", "_");
+            identifier = identifier.Replace("(", "_");
+            identifier = identifier.Replace(")", "_");
+            identifier = identifier.Replace(":", "_");
+            identifier = identifier.Replace("/", "_");
+            identifier = identifier.Replace("+", "plus");
+            identifier = identifier.Replace("-", "minus");
+            identifier = identifier.Replace("\"", "");
+            identifier = identifier.Replace("'", "");
+            identifier = identifier.Replace(";", "_");
+            identifier = identifier.Replace("&", "and");
+            identifier = identifier.Replace("%", "percent");
+
+
+            if (identifier.StartsWith("$"))
+                identifier = identifier.Substring(1);
+            var keyword = SyntaxFacts.GetKeywordKind(identifier);
+            if (keyword != SyntaxKind.None)
+            {
+                identifier = $"@{identifier}";
+            }
+            if (char.IsDigit(identifier[0]))
+                identifier = "_" + identifier;
+            return identifier;
         }
 
     }

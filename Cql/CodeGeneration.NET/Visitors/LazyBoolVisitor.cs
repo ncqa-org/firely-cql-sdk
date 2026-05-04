@@ -1,18 +1,21 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
-using Hl7.Cql.Compiler.Infrastructure;
+using System;
+using System.Collections.Generic;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace Hl7.Cql.CodeGeneration.NET.Visitors
 {
     internal class LazyBoolAssignmentVisitor : ExpressionVisitor
     {
-        private static readonly ConstructorInfo LazyCtor = ConstructorInfos.LazyOfBoolCtor;
+        private static readonly ConstructorInfo LazyCtor = typeof(Lazy<bool?>).GetConstructor(new[] { typeof(Func<bool?>) })!;
 
         public List<ParameterExpression> NewParameters { get; } = new List<ParameterExpression>();
 

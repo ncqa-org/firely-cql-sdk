@@ -1,10 +1,13 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
+
+using System;
+using System.Collections.Generic;
 
 namespace Hl7.Cql.Compiler
 {
@@ -24,10 +27,9 @@ namespace Hl7.Cql.Compiler
         /// </summary>
         /// <param name="linqExpression">The source expression.</param>
         /// <param name="elmExpression">The corresponding ELM expression.</param>
-        /// <param name="ctx">The build context.  Be careful modifying this value as it can have unexpected side effects (e.g., removing key from <see cref="ExpressionBuilderContext.Scopes"/> could break the builder.).</param>
-        public System.Linq.Expressions.Expression Mutate(
-            System.Linq.Expressions.Expression linqExpression,
+        /// <param name="context">The build context.  Be careful modifying this value as it can have unexpected side effects (e.g., removing key from <see cref="ExpressionBuilderContext.Scopes"/> could break the builder.).</param>
+        public System.Linq.Expressions.Expression Mutate(System.Linq.Expressions.Expression linqExpression,
             Elm.Element elmExpression,
-            ExpressionBuilderContext ctx);
+            ExpressionBuilderContext context);
     }
 }

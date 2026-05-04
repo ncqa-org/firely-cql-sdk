@@ -1,68 +1,169 @@
-﻿/*
- * Copyright (c) 2024, Firely, NCQA and contributors
- * See the file CONTRIBUTORS for details.
- *
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
- */
+﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+using Hl7.Cql.Packaging;
+using Hl7.Cql.Packaging.ResourceWriters;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Serilog;
 
-using Hl7.Cql.Packager.Commands.CqlToFhir;
-using Hl7.Cql.Packager.Commands.ElmToFhir;
-using Hl7.Cql.Packager.Commands.ExtractLibraryAttachments;
-using Hl7.Cql.Packager.Commands.Global;
-using Hl7.Cql.Packager.Commands.Logging;
-using Hl7.Cql.Packager.Commands.ReplaceLibraryAttachments;
-
-namespace Hl7.Cql.Packager;
-
-public class Program
+namespace Hl7.Cql.Packager
 {
-    // The latest version number can be found under the releases tab of the CQL to ELM CLI repository
-    // see: https://github.com/cqframework/clinical_quality_language/releases
-    //
-    // If you change the version here, you also need to update it in these places too:
-    // * pom.xml
-    // * Java-Dependencies-Vars.ps1
-    // * Java-Dependencies-Vars.sh
-    // * The Hl7.Cql.Packager.Program.JavaToolVersion for the Packager CLI
-    private const string JavaToolVersion = "3.29.0";
-
-    internal static readonly string Disclaimer =
-        NewLine +
-        NewLine +
-        "DISCLAIMER:" +
-        NewLine +
-        "The cql command is a very early addition and only supports basic cql translation. " +
-        "It is not yet production ready. " +
-        $"If you find issues, please start from the ELM produced by the Java v{JavaToolVersion} tooling instead " +
-        "as input for the elm command.";
-
-    private static readonly string Description =
-        "Utilities for converting CQL or ELM into other artefacts, such as C#, .NET assemblies or FHIR Resources. " +
-        "Pick from a command listed below, or type [command] --help for more information on it." +
-        Disclaimer;
-
-
-    public static int Main(string[] args)
+    public static class Program
     {
-        var rootCommand =
-            new RootCommand(Description)
-                {
-                    Name = Process.GetCurrentProcess().ProcessName, // Use the name of the executable as the command name
+        public static int Main(string[] args)
+        {
+            var config = new ConfigurationBuilder()
+                .AddCommandLine(args)
+                .Build();
+
+            if (args.Length == 0 || config["?"] != null || config["h"] != null || config["help"] != null)
+                return ShowHelp();
+
+            if (config.AsEnumerable()
+                    .Select(kv => kv.Key)
+                    .Except(supportedArgs)
+                    .ToList() is { Count: > 0 } unknownArgs)
+            {
+                Console.Error.WriteLine($"Unknown args: {string.Join(", ", unknownArgs)}.");
+                ShowHelp();
+                return -1;
             }
-                //.AddOptions(ElmToFhirCommand.EnumerationOptions)
-                .AddGlobalOptions(LoggingCommand.Options)
-                .AddGlobalOptions(GlobalCommand.Options)
-                //.SetHandler(typeof(ElmToFhirProgram), nameof(ElmToFhirProgram.CommandHandler))
-            ;
 
-        rootCommand.AddCommand(ElmToFhirCommand.CreateCommand());
-        rootCommand.AddCommand(CqlToFhirCommand.CreateCommand());
-        rootCommand.AddCommand(ExtractLibraryAttachmentsCommand.CreateCommand());
-        rootCommand.AddCommand(ReplaceLibraryAttachmentsCommand.CreateCommand());
 
-        var systemConsole = new SystemConsole();
-        var result = rootCommand.Invoke(args, systemConsole);
-        return result;
+            // elm
+
+            if (config["elm"] is not {} elmArg)
+                return ShowHelp();
+
+            var elmDir = new DirectoryInfo(elmArg);
+            if (!elmDir.Exists)
+            {
+                Console.Error.WriteLine($"-elm: path {elmArg} does not exist.");
+                return -1;
+            }
+
+            // cql
+
+            if (config["cql"] is not {} cqlArg )
+                return ShowHelp();
+
+            var cqlDir = new DirectoryInfo(cqlArg);
+            if (!cqlDir.Exists)
+            {
+                Console.Error.WriteLine($"-cql: path {cqlArg} does not exist.");
+                return -1;
+            }
+
+            // d
+
+            if (config["d"] is {} dArg && !bool.TryParse(dArg, out bool debug))
+            {
+                Console.Error.WriteLine($"-d: expected true|false, got {dArg}");
+                return -1;
+            }
+
+            // cs
+
+            DirectoryInfo? csDir = null;
+            if (config["cs"] is {} csArg)
+            {
+                csDir = new DirectoryInfo(csArg);
+                if (!csDir.Exists)
+                {
+                    EnsureDirectory(csDir);
+                }
+            }
+
+            // f
+
+            if (config["f"] is {} fArg 
+                && !bool.TryParse(fArg, out var force))
+            {
+                Console.Error.WriteLine($"-f: expected true|false, got {fArg}");
+                return -1;
+            }
+
+            // fhir
+
+            DirectoryInfo? fhirDir = null;
+            if (config["fhir"] is {} fhirArg)
+            {
+                fhirDir = new DirectoryInfo(fhirArg);
+                if (!fhirDir.Exists)
+                {
+                    EnsureDirectory(fhirDir);
+                }
+            }
+
+            // canonical-root-url
+
+            var resourceCanonicalRootUrl = config["canonical-root-url"]?.TrimEnd('/');
+
+            Package(elmDir, cqlDir, csDir, fhirDir, resourceCanonicalRootUrl);
+            return 0;
+        }
+
+        private static void Package(DirectoryInfo elmDir, DirectoryInfo cqlDir, DirectoryInfo? csDir, DirectoryInfo? fhirDir, string? resourceCanonicalRootUrl)
+        {
+            var logLevel = LogLevel.Trace;
+            var logFactory = LoggerFactory
+                .Create(logging =>
+                {
+                    logging.AddFilter(level => level >= logLevel);
+                    logging.AddConsole(console =>
+                    {
+                        console.LogToStandardErrorThreshold = LogLevel.Error;
+                    });
+                    var logFile = Path.Combine(".", "build.txt");
+#pragma warning disable CA1305 // Specify IFormatProvider
+                    Log.Logger = new LoggerConfiguration()
+                      .Enrich.FromLogContext()
+                      .WriteTo
+                      .File(logFile)
+                      .CreateLogger();
+#pragma warning restore CA1305 // Specify IFormatProvider
+                    logging.AddSerilog();
+                });
+            var cliLogger = logFactory.CreateLogger("CLI");
+
+            List<ResourceWriter> resourceWriters = new();
+            if (fhirDir != null) resourceWriters.Add(new FhirResourceWriter(fhirDir, cliLogger));
+            if (csDir != null) resourceWriters.Add(new CSharpResourceWriter(csDir, cliLogger));
+
+            var resourcePackager = new ResourcePackager(logFactory, resourceWriters.ToArray());
+            resourcePackager.Package(new PackageArgs(elmDir, cqlDir, resourceCanonicalRootUrl: resourceCanonicalRootUrl));
+        }
+
+
+        private static void EnsureDirectory(DirectoryInfo directory, int timeoutMs = 5000)
+        {
+            var now = DateTime.Now;
+            var loop = true;
+            var timeout = TimeSpan.FromMilliseconds(timeoutMs);
+            while (!directory.Exists && loop)
+            {
+                directory.Create();
+                directory.Refresh();
+                if (DateTime.Now.Subtract(now) > timeout)
+                    throw new InvalidOperationException($"Unable to create directory {directory.FullName} after {timeout}");
+            }
+        }
+
+        private static string[] supportedArgs = new[] { "elm", "cql", "fhir", "cs", "d", "f", "canonical-root-url" };
+
+        private static int ShowHelp()
+        {
+            Console.WriteLine();
+            Console.WriteLine("Packager CLI");
+            Console.WriteLine();
+            Console.WriteLine($"\t--elm <directory>\tLibrary root path");
+            Console.WriteLine($"\t--cql <directory>\tCQL root path");
+            Console.WriteLine($"\t[--fhir] <file>\tResource location, either file name or directory");
+            Console.WriteLine($"\t[--cs] <file>\tC# output location, either file name or directory");
+            Console.WriteLine($"\t[--d] true|false\t\tProduce as a debug assembly");
+            Console.WriteLine($"\t[--f] true|false\tIf output file already exists, overwrite");
+            Console.WriteLine($"\t[--canonical-root-url] <url>\tThe root url used for the resource canonical. If omitted a '#' will be used");
+            Console.WriteLine();
+            return -1;
+        }
     }
 }

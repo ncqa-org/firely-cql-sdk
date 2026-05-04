@@ -1,15 +1,11 @@
-﻿/*
- * Copyright (c) 2025, Firely, NCQA and contributors
- * See the file CONTRIBUTORS for details.
- *
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
- */
-
+﻿using Hl7.Cql.Elm;
 using Hl7.Cql.Fhir;
 using Hl7.Cql.Packaging;
 using Hl7.Cql.Primitives;
 using Hl7.Fhir.Model;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace CoreTests
 {
@@ -18,7 +14,7 @@ namespace CoreTests
     public class CqlTypeToFhirTypeMapperTest
     {
         #region Cql to FHIR
-
+        
         [TestMethod]
         public void CqlDate_MapToFhirType()
         {
@@ -125,11 +121,11 @@ namespace CoreTests
             Assert.IsNotNull(typeEntry, $"Unable to express {cqlType} as a FHIR type");
             Assert.AreEqual(FHIRAllTypes.Boolean, typeEntry.FhirType.Value);
         }
-
+        
         [TestMethod]
         public void LINQResult_MapToFhirType()
         {
-            List<object> list = [new Claim() { Id = "claim1" }];
+            var list = new List<object> { new Claim() { Id = "claim1" } };
 
             var linqResult = list.Cast<Claim>();
 

@@ -1,41 +1,43 @@
-﻿/*
- * Copyright (c) 2024, Firely, NCQA and contributors
- * See the file CONTRIBUTORS for details.
- *
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
- */
+﻿using Hl7.Cql.Abstractions;
 using Hl7.Cql.Comparers;
 using Hl7.Fhir.Model;
 
 namespace Hl7.Cql.Fhir.Comparers
 {
-    internal class IdentifierComparer(
-        ICqlComparer<string> systemComparer,
-        ICqlComparer<string> valueComparer) :
-        CqlComparer<Identifier>(
-            CqlComparerEqualsImplementation.Compare,
-            CqlComparerEquivalentImplementation.Compare)
+    internal class IdentifierComparer : CqlComparerBase<Identifier>
     {
-        protected override int? CompareValues(
-            Identifier x,
-            Identifier y,
-            string? precision)
+        public IdentifierComparer(ICqlComparer systemComparer, ICqlComparer valueComparer)
         {
-            var systemComp = systemComparer.Compare(x.System, y.System, precision);
-            if (systemComp == 0)
-            {
-                var valueComp = valueComparer.Compare(x.Value, y.Value, precision);
-                return valueComp;
-            }
-
-            return systemComp;
+            SystemComparer = systemComparer;
+            ValueComparer = valueComparer;
         }
 
-        protected override bool IsNull([NotNullWhen(false)] Identifier? value) =>
-            value?.Value is null;
+        public ICqlComparer SystemComparer { get; }
+        public ICqlComparer ValueComparer { get; }
 
-        protected override int GetHashCodeValue(Identifier value) =>
-            HashCode.Combine(value.Value, value.System);
+        public override int? Compare(Identifier? x, Identifier? y, string? precision)
+        {
+            if (x == null || y == null) return null;
+            else
+            {
+                var systemComp = SystemComparer.Compare(x.System, y.System, precision);
+                if (systemComp == 0)
+                {
+                    var valueComp = ValueComparer.Compare(x.Value, y.Value, precision);
+                    return valueComp;
+                }
+                else return systemComp;
+            }
+        }
+
+        public override bool Equivalent(Identifier? x, Identifier? y, string? precision) =>
+            (Compare(x, y, precision) ?? -1) == 0;
+
+        public override int GetHashCode(Identifier x)
+        {
+            if (x == null || x.Value == null)
+                return typeof(Identifier).GetHashCode();
+            else return $"{x.Value}{x.System}".GetHashCode();
+        }
     }
 }

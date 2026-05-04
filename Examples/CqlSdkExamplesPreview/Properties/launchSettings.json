@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "000 Run All": {
-      "commandName": "Project",
-      "commandLineArgs": "000"
-    }
-  }
-}

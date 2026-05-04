@@ -1,166 +1,191 @@
-﻿/*
+﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
 using Hl7.Cql.Abstractions;
 using Hl7.Cql.Compiler;
+using Hl7.Cql.Elm;
+using Hl7.Cql.Graph;
 using Hl7.Cql.Runtime;
+using Hl7.Cql.ValueSets;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Text;
+using System.Xml.Linq;
 
 namespace Hl7.Cql.CodeGeneration.NET
 {
     internal class AssemblyCompiler
     {
-        private static readonly EmitOptions DefaultEmitOptions = new();
-        private static readonly CSharpParseOptions CSharpParseOptions = CSharpParseOptions.Default;
-
-        private static readonly string[] AssemblyFileNames = [
-            "System.Private.CoreLib.dll",
-            "System.Runtime.dll",
-            "System.Console.dll",
-            "netstandard.dll",
-
-            "System.Text.RegularExpressions.dll", // IMPORTANT!
-            "System.Linq.dll",
-            "System.Linq.Expressions.dll", // IMPORTANT!
-
-            "System.IO.dll",
-            "System.Net.Primitives.dll",
-            "System.Net.Http.dll",
-            "System.Private.Uri.dll",
-            "System.Reflection.dll",
-            "System.ComponentModel.Primitives.dll",
-            "System.Globalization.dll",
-            "System.Collections.Concurrent.dll",
-            "System.Collections.NonGeneric.dll",
-            "Microsoft.CSharp.dll",
-
-            "System.Diagnostics.Tools.dll",
-            "System.Diagnostics.Debug.dll",
-            "System.Collections.dll",
-
-            "System.ObjectModel.dll",
-            "System.ComponentModel.dll",
-            "System.ComponentModel.Annotations.dll",
-            "System.ComponentModel.TypeConverter.dll",
-        ];
-
-        private readonly Lazy<Assembly[]> _referencesLazy;
-
-        public AssemblyCompiler(TypeResolver typeResolver)
+        internal AssemblyCompiler(TypeResolver typeResolver,
+            TypeManager? typeManager = null,
+            OperatorBinding? operatorBinding = null)
         {
-            _referencesLazy = new Lazy<Assembly[]>(
-                () =>
-                {
-                    var references = new[]
-                        {                                        // @formatter off
-
-                            // Core engine references
-                            typeof(Iso8601.DateIso8601),         // Iso8601
-                            typeof(CqlDefinitionAttribute),     // Cql.Abstractions
-                            typeof(CqlContext),                  // Cql.Runtime
-
-                        }                                        // @formatter on
-                        .Select(type => type.Assembly)
-                        .Concat(typeResolver.ModelAssemblies)
-                        .Distinct()
-                        .ToArray();
-                    return references;
-                });
+            TypeResolver = typeResolver;
+            TypeManager = typeManager ?? new TypeManager(typeResolver);
+            Binding = operatorBinding ?? new CqlOperatorsBinding(typeResolver);
         }
 
-        public IEnumerable<(ElmLibrary library, AssemblyBinaryWithSourceCode assemblyBinaryWithSourceCode)> CompileEachLibraryToAssemblies(
-            IEnumerable<(ElmLibrary library, string csharp)> librariesWithCSharp,
-            LibrarySet librarySet,
-            DebugSymbolsFormat debugSymbolsFormat = DebugSymbolsFormat.None,
-            bool allowInvalidCSharp = false,
-            BatchProcessExceptionHandlingStrategyBuilder<(ElmLibrary library, string csharp)>? buildExceptionHandlingStrategy = null)
+        private TypeResolver TypeResolver { get; }
+        private TypeManager TypeManager { get; }
+        private OperatorBinding Binding { get; }
+
+        internal IDictionary<string, AssemblyData> Compile(IEnumerable<Library> elmPackages,
+                    ILoggerFactory logFactory)
         {
-            Dictionary<string, AssemblyBinaryWithSourceCode> results = new();
-            Assembly[] assemblyReferences = _referencesLazy.Value;
-            return librariesWithCSharp
-                .TrySelect(
-                    t =>
-                    {
-                        var (library, cSharp) = t;
-                        var assemblyBinaryWithSourceCode = CompileNode(cSharp, results, librarySet, library, assemblyReferences, debugSymbolsFormat);
-                        results.Add(library.VersionedLibraryIdentifier, assemblyBinaryWithSourceCode);
-                        return (library, assemblyBinaryWithSourceCode);
-                    },
-                    buildExceptionHandlingStrategy,
-                    allowInvalidCSharp ? YieldWithoutAssemblyBinary : null);
+            var builderLogger = logFactory.CreateLogger<ExpressionBuilder>();
+            var codeWriterLogger = logFactory.CreateLogger<CSharpSourceCodeWriter>();
 
-            ShouldYieldValue<(ElmLibrary library, AssemblyBinaryWithSourceCode assemblyBinaryWithSourceCode)> YieldWithoutAssemblyBinary(
-                (ElmLibrary library, string csharp) t) =>
-                (
-                    t.library,
-                    assemblyBinaryWithSourceCode: new AssemblyBinaryWithSourceCode(
-                        assemblyBytes: null,
-                        sourceCode: t.csharp,
-                        sourceCodeFileName: BuildFileName(t.library.VersionedLibraryIdentifier))
-                );
-        }
-
-        private static CSharpCompilationOptions CreateCSharpCompilationOptions(
-            DebugSymbolsFormat debugSymbolsFormat) =>
-            new(
-                outputKind: OutputKind.DynamicallyLinkedLibrary,
-                optimizationLevel: debugSymbolsFormat == DebugSymbolsFormat.None ? OptimizationLevel.Release : OptimizationLevel.Debug,
-                deterministic: true, // see: https://github.com/dotnet/roslyn/blob/main/docs/compilers/Deterministic%20Inputs.md
-                sourceReferenceResolver: new SourceFileResolver(ImmutableArray<string>.Empty, null)
-            );
-
-        private AssemblyBinaryWithSourceCode CompileNode(
-            string librarySourceString,
-            Dictionary<string, AssemblyBinaryWithSourceCode> assemblies,
-            LibrarySet librarySet,
-            ElmLibrary library,
-            IEnumerable<Assembly> assemblyReferences,
-            DebugSymbolsFormat debugSymbolsFormat)
-        {
-            EmbeddedText[]? embeddedTexts = []; // For embedding C# when enabling debug information
-            string libraryVersionedIdentifier = library.VersionedLibraryIdentifier;
-            var fileName = BuildFileName(libraryVersionedIdentifier);
-
-            if (debugSymbolsFormat != DebugSymbolsFormat.None)
+            var graph = Library.GetIncludedLibraries(elmPackages);
+            var references = new[]
             {
-                // Embed C# source code
-                var sourceText = SourceText.From(librarySourceString, Encoding.UTF8);
-                var embeddedText = EmbeddedText.FromSource(fileName, sourceText);
-                embeddedTexts = [embeddedText];
+            // Core engine references
+                typeof(CqlDeclarationAttribute).Assembly, // Cql.Abstractions
+                typeof(Comparers.CqlComparers).Assembly, // Cql.Comparers
+                typeof(Conversion.IUnitConverter).Assembly, // Cql.Conversion
+                typeof(Operators.ICqlOperators).Assembly, // Cql.Operators
+                typeof(Primitives.CqlPrimitiveType).Assembly, // Cql.Primitives
+                typeof(CqlContext).Assembly, // Cql.Runtime
+                typeof(IValueSetDictionary).Assembly, // Cql.ValueSets
+                typeof(Iso8601.DateIso8601).Assembly, // Iso8601
+            }
+            .Concat(TypeResolver.ModelAssemblies)
+            .Distinct()
+            .ToArray();
+
+            var namespaces = new[]
+            {
+                typeof(CqlDeclarationAttribute).Namespace!,
+                typeof(IValueSetFacade).Namespace!,
+                typeof(Iso8601.DateIso8601).Namespace!,
+            }
+            .Concat(TypeResolver.ModelNamespaces)
+            .Distinct()
+            .ToArray();
+
+            var scw = new CSharpSourceCodeWriter(codeWriterLogger);
+            foreach (var @using in namespaces)
+                scw.Usings.Add(@using);
+            var aliases = TypeResolver.Aliases;
+            foreach (var alias in aliases)
+                scw.AliasedUsings.Add(alias);
+
+
+            var all = new DefinitionDictionary<LambdaExpression>();
+            foreach (var package in elmPackages)
+            {
+                var builder = new ExpressionBuilder(Binding, TypeManager, package, builderLogger, new(false));
+                var expressions = builder.Build();
+                all.Merge(expressions);
             }
 
-            var librarySyntaxTree = ParseSyntaxTree(librarySourceString, fileName);
+            var assemblies = generate(all,
+                TypeManager,
+                graph,
+                scw,
+                references);
+            return assemblies;
+        }
+
+        private IDictionary<string, AssemblyData> generate(DefinitionDictionary<LambdaExpression> expressions,
+           TypeManager typeManager,
+           DirectedGraph dependencies,
+           CSharpSourceCodeWriter writer,
+           IEnumerable<Assembly> references)
+        {
+            Dictionary<string, Stream> navToLibraryStream = new();
+
+            Stream getStreamForLibrary(string nav)
+            {
+                if (!navToLibraryStream.TryGetValue(nav, out var stream))
+                {
+                    stream = new MemoryStream();
+                    navToLibraryStream.Add(nav, stream);
+                }
+                return stream;
+            }
+
+            writer.Write(expressions,
+                typeManager.TupleTypes,
+                dependencies,
+                getStreamForLibrary,
+                closeStream: false);
+
+            var assemblies = new Dictionary<string, AssemblyData>();
+            var tupleStreams = navToLibraryStream
+                .Where(kvp => kvp.Key.StartsWith("Tuples" + Path.DirectorySeparatorChar));
+            var tupleAssembly = CompileTuples(tupleStreams, references);
+            assemblies.Add("TupleTypes", tupleAssembly);
+
+            var additionalReferences = new[]
+            {
+                tupleAssembly
+            };
+
+            //if (navToLibraryStream.TryGetValue("ICqlMeasure", out var icqlMeasureStream))
+            //{
+            //    var interfaceAssembly = CompileInterface(icqlMeasureStream, references);
+            //    assemblies.Add("ICqlMeasure", interfaceAssembly);
+
+            //    additionalReferences = new[]
+            //    {
+            //        tupleAssembly,
+            //        interfaceAssembly
+            //    };
+            //}
+
+            var buildOrder = DetermineBuildOrder(dependencies);
+            foreach (var node in buildOrder)
+            {
+                if (!navToLibraryStream.TryGetValue(node.NodeId, out var sourceCodeStream))
+                    throw new InvalidOperationException($"Library {node.NodeId} doesn't exist in the source code dictionary.");
+                CompileNode(sourceCodeStream, assemblies, node, references, additionalReferences);
+            }
+            return assemblies;
+        }
+
+        private AssemblyData CompileTuples(IEnumerable<KeyValuePair<string, Stream>> tupleStreams,
+            IEnumerable<Assembly> assemblyReferences)
+        {
             var metadataReferences = new List<MetadataReference>();
             AddNetCoreReferences(metadataReferences);
             foreach (var asm in assemblyReferences)
+            {
                 metadataReferences.Add(MetadataReference.CreateFromFile(asm.Location));
+            }
+            var compilation = CSharpCompilation.Create($"Tuples")
+                .WithOptions(new CSharpCompilationOptions(outputKind: OutputKind.DynamicallyLinkedLibrary,
+                    optimizationLevel: OptimizationLevel.Release))
+                .WithReferences(metadataReferences);
 
-            foreach (var libraryDependency in librarySet.GetLibraryDependencies(libraryVersionedIdentifier!))
-                if (assemblies.TryGetValue(libraryDependency.VersionedLibraryIdentifier, out var referencedDll))
-                    metadataReferences.Add(MetadataReference.CreateFromImage(referencedDll.AssemblyBytes!));
+            var sources = new Dictionary<string, string>();
+            foreach (var kvp in tupleStreams)
+            {
+                var sourceCodeStream = kvp.Value;
+                sourceCodeStream.Flush();
+                sourceCodeStream.Seek(0, SeekOrigin.Begin);
+                var reader = new StreamReader(sourceCodeStream);
+                var sourceCode = reader.ReadToEnd().Trim();
+                sources.Add(kvp.Key.Substring("Tuples\\".Length), sourceCode);
+                var tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
 
-            var assemblyInfoSourceString = CreateAssemblyInfoSourceString(library);
-            var assemblyInfoSourcePath = "AssemblyInfo.cs";
-            var assemblyInfoSyntaxTree = ParseSyntaxTree(assemblyInfoSourceString, assemblyInfoSourcePath);
-
-            var compilation = CSharpCompilation.Create($"{libraryVersionedIdentifier!}")
-                                               .WithOptions(CreateCSharpCompilationOptions(debugSymbolsFormat))
-                                               .WithReferences(metadataReferences)
-                                               .AddSyntaxTrees(
-                                                   librarySyntaxTree,
-                                                   assemblyInfoSyntaxTree
-                                               );
-
-            using var codeStream = new MemoryStream();
-            MemoryStream? pdbStream = debugSymbolsFormat == DebugSymbolsFormat.PortablePdb ? new MemoryStream() : null;
-            using var pdbStreamDisposable = pdbStream as IDisposable;
-
-            var emitOptions = CreateEmitOptions(debugSymbolsFormat);
-            var compilationResult = compilation.Emit(codeStream, pdbStream, options:emitOptions, embeddedTexts: embeddedTexts);
+                compilation = compilation.AddSyntaxTrees(tree);
+            }
+            var codeStream = new MemoryStream();
+            var compilationResult = compilation.Emit(codeStream);
             var errors = new List<Diagnostic>();
             var warnings = new List<Diagnostic>();
             if (!compilationResult.Success)
@@ -173,11 +198,9 @@ namespace Hl7.Cql.CodeGeneration.NET
                         case DiagnosticSeverity.Warning:
                             warnings.Add(diag);
                             break;
-
                         case DiagnosticSeverity.Error:
                             errors.Add(diag);
                             break;
-
                         case DiagnosticSeverity.Hidden:
                         case DiagnosticSeverity.Info:
                         default:
@@ -185,61 +208,142 @@ namespace Hl7.Cql.CodeGeneration.NET
                     }
                     sb.AppendLine(diag.ToString());
                 }
-                var ex = new InvalidOperationException($"The following compilation errors were detected when compiling {libraryVersionedIdentifier!}:{Environment.NewLine}{sb}");
+                var ex = new InvalidOperationException($"The following compilation errors were detected when compiling Tuples:{Environment.NewLine}{sb}");
                 ex.Data["Errors"] = errors;
                 ex.Data["Warnings"] = warnings;
-                ex.Data["SourceCode"] = librarySourceString;
+
                 throw ex;
             }
             var bytes = codeStream.ToArray();
-            var debugSymbols = pdbStream?.ToArray();
-            var asmData = new AssemblyBinaryWithSourceCode(bytes, new Dictionary<string, string> { { libraryVersionedIdentifier!, librarySourceString }}, debugSymbols);
+            var asmData = new AssemblyData(bytes, sources);
             return asmData;
         }
 
-        private static string BuildFileName(string libraryVersionedIdentifier) =>
-            $"{libraryVersionedIdentifier}.cs";
-
-        private static EmitOptions CreateEmitOptions(DebugSymbolsFormat debugSymbolsFormat)
+        private void CompileNode(Stream sourceCodeStream,
+            Dictionary<string, AssemblyData> assemblies,
+            DirectedGraphNode node,
+            IEnumerable<Assembly> assemblyReferences,
+            IEnumerable<AssemblyData>? dependencyAssemblies)
         {
-            var emitOptions = DefaultEmitOptions;
-            if (debugSymbolsFormat != DebugSymbolsFormat.None)
-                emitOptions = emitOptions.WithDebugInformationFormat((DebugInformationFormat)debugSymbolsFormat);
-            return emitOptions;
+            sourceCodeStream.Flush();
+            sourceCodeStream.Seek(0, SeekOrigin.Begin);
+            var reader = new StreamReader(sourceCodeStream);
+            var sourceCode = reader.ReadToEnd().Trim();
+            var tree = SyntaxFactory.ParseSyntaxTree(sourceCode);
+            var metadataReferences = new List<MetadataReference>();
+            AddNetCoreReferences(metadataReferences);
+            foreach (var asm in assemblyReferences)
+            {
+                metadataReferences.Add(MetadataReference.CreateFromFile(asm.Location));
+            }
+            foreach (var edge in node.ForwardEdges)
+            {
+                if (assemblies.TryGetValue(edge.ToId, out var referencedDll))
+                {
+                    metadataReferences.Add(MetadataReference.CreateFromImage(referencedDll.Binary));
+                }
+            }
+            if (dependencyAssemblies != null)
+            {
+                foreach (var dependency in dependencyAssemblies)
+                {
+                    metadataReferences.Add(MetadataReference.CreateFromImage(dependency.Binary));
+                }
+            }
+            var asmInfo = new StringBuilder();
+            var parts = node.NodeId.Split('-');
+            string name = parts[0];
+            string version = string.Empty;
+            if (parts.Length > 1)
+                version = parts[1];
+            asmInfo.AppendLine(CultureInfo.InvariantCulture, $"[assembly: Hl7.Cql.Abstractions.CqlLibraryAttribute(\"{name}\", \"{version}\")]");
+            var asmInfoTree = SyntaxFactory.ParseSyntaxTree(asmInfo.ToString());
+
+            var compilation = CSharpCompilation.Create($"{node.NodeId}")
+                .WithOptions(new CSharpCompilationOptions(outputKind: OutputKind.DynamicallyLinkedLibrary,
+                    optimizationLevel: OptimizationLevel.Release))
+                .WithReferences(metadataReferences)
+                .AddSyntaxTrees(tree, asmInfoTree);
+            var codeStream = new MemoryStream();
+            var compilationResult = compilation.Emit(codeStream);
+            var errors = new List<Diagnostic>();
+            var warnings = new List<Diagnostic>();
+            if (!compilationResult.Success)
+            {
+                var sb = new StringBuilder();
+                foreach (var diag in compilationResult.Diagnostics)
+                {
+                    switch (diag.Severity)
+                    {
+                        case DiagnosticSeverity.Warning:
+                            warnings.Add(diag);
+                            break;
+                        case DiagnosticSeverity.Error:
+                            errors.Add(diag);
+                            break;
+                        case DiagnosticSeverity.Hidden:
+                        case DiagnosticSeverity.Info:
+                        default:
+                            break;
+                    }
+                    sb.AppendLine(diag.ToString());
+                }
+                var ex = new InvalidOperationException($"The following compilation errors were detected when compiling {node.NodeId}:{Environment.NewLine}{sb}");
+                ex.Data["Errors"] = errors;
+                ex.Data["Warnings"] = warnings;
+
+                throw ex;
+            }
+            var bytes = codeStream.ToArray();
+            var asmData = new AssemblyData(bytes, new Dictionary<string, string> { { node.NodeId, sourceCode } });
+            assemblies.Add(node.NodeId, asmData);
         }
 
-        private static string CreateMD5HashStringDirectory(string text)
+
+        private void AddNetCoreReferences(List<MetadataReference> metadataReferences)
         {
-            text = System.Convert.ToBase64String(MD5.HashData(Encoding.UTF8.GetBytes(text)));
-            return text.Replace('/', '-');
+            var rtPath = Path.GetDirectoryName(typeof(object).Assembly.Location) ??
+                throw new InvalidOperationException($"Couldn't identify system file path for the System assembly");
+
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Private.CoreLib.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Runtime.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Console.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "netstandard.dll")));
+
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Text.RegularExpressions.dll"))); // IMPORTANT!
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Linq.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Linq.Expressions.dll"))); // IMPORTANT!
+
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.IO.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Net.Primitives.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Net.Http.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Private.Uri.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Reflection.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.ComponentModel.Primitives.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Globalization.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Collections.Concurrent.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Collections.NonGeneric.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "Microsoft.CSharp.dll")));
+
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Diagnostics.Tools.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Diagnostics.Debug.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.Collections.dll")));
+
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.ObjectModel.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.ComponentModel.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.ComponentModel.Annotations.dll")));
+            metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, "System.ComponentModel.TypeConverter.dll")));
+
+
+        }
+        private IList<DirectedGraphNode> DetermineBuildOrder(DirectedGraph minimalGraph)
+        {
+            var sorted = minimalGraph.TopologicalSort()
+                .Where(n => n.NodeId != minimalGraph.StartNode.NodeId && n.NodeId != minimalGraph.EndNode.NodeId)
+                .ToList();
+            return sorted;
         }
 
-        private static SyntaxTree ParseSyntaxTree(string text, string path)
-        {
-            var sourceText = SourceText.From(text, Encoding.UTF8);
-            var syntaxTree = SyntaxFactory.ParseSyntaxTree(sourceText, CSharpParseOptions, path);
-            return syntaxTree;
-        }
-
-        private static string CreateAssemblyInfoSourceString(ElmLibrary library)
-        {
-            var (name, version) = library.VersionedLibraryIdentifier;
-
-            var text = $"""
-                        [assembly: Hl7.Cql.Abstractions.CqlLibraryAttribute("{name}", "{version}")]
-                        [assembly: System.Reflection.AssemblyVersion("{version}")]
-                        """;
-            return text;
-        }
-
-        private static void AddNetCoreReferences(List<MetadataReference> metadataReferences)
-        {
-            var rtPath = Path.GetDirectoryName(typeof(object).Assembly.Location)
-                         ?? throw new InvalidOperationException($"Couldn't identify system file path for the System assembly");
-
-            foreach (var assemblyFileName in AssemblyFileNames)
-                metadataReferences.Add(MetadataReference.CreateFromFile(Path.Combine(rtPath, assemblyFileName)));
-
-        }
     }
 }
+#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

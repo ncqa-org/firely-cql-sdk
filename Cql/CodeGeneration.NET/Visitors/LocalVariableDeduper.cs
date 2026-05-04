@@ -1,10 +1,14 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
+
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 
 namespace Hl7.Cql.CodeGeneration.NET.Visitors
 {
@@ -14,7 +18,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
     /// <remarks>Note that it is not trivial to determine whether expressions are duplicates, so we
     /// turn the expressions into strings using the (internal) DebugView visitor provided by Microsoft.
     /// This requires a full reduction and visit of the tree, so is quite expensive.</remarks>
-    internal class LocalVariableDeduper(TypeToCSharpConverter typeToCSharpConverter) : ExpressionVisitor
+    internal class LocalVariableDeduper : ExpressionVisitor
     {
         private readonly Stack<Dictionary<ParameterExpression, ParameterExpression>> _replacementStack = new();
 
@@ -26,7 +30,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
             // Find assignments where the right side is exactly the same.
             var duplicateAssignments = localAssignments
-                .GroupBy(ass => $"{ass.Right.GetDebugView()}::{typeToCSharpConverter.ToCSharp(ass.Right.Type)}")
+                .GroupBy(ass => $"{ass.Right.GetDebugView()}::{ExpressionConverter.PrettyTypeName(ass.Right.Type)}")
                 .Where(g => g.Count() > 1) // && !g.Key.Contains("Deeper")
                 .ToList();
 
@@ -46,7 +50,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
             var replacementDictionary = new Dictionary<ParameterExpression, ParameterExpression>(replacements);
 
             // Since the variables can be nested deeply, we'll go deeper using this visitor. In the mean time,
-            // when we encounter new Blocks with new duplicates, we'll gather those too, resulting in a
+            // when we encounter new Blocks with new duplicates, we'll gather those too, resulting in a 
             // stack of replacements that are only applicable to the current syntactical scope and deeper.
             _replacementStack.Push(replacementDictionary);
             var visitedLocals = node.Variables.Select(v => (ParameterExpression)Visit(v)).Distinct();

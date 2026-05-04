@@ -1,10 +1,14 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
+
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 
 namespace Hl7.Cql.CodeGeneration.NET.Visitors
 {
@@ -26,7 +30,7 @@ namespace Hl7.Cql.CodeGeneration.NET.Visitors
 
         protected override Expression VisitBlock(BlockExpression node)
         {
-            // Every nested block can introduce new named parameters that we should not rename, so
+            // Every nested block can introduce new named parameters that we should not rename, so 
             // we'll start by creating a new generator with the blocks variables/parameters
             var localNameGenerator = useInitialGenerator ? initialNameGenerator : initialNameGenerator.ForNewScope(node.Variables);
             useInitialGenerator = false;

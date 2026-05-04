@@ -1,32 +1,34 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-	<Import Project="..\..\cql-base.props" />
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0;net10.0</TargetFrameworks>
-		<Configurations>Debug;Release</Configurations>
+		<TargetFramework>net9.0</TargetFramework>
+		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<IsPackable>false</IsPackable>
-		<Nullable>disable</Nullable>
-		<NoWarn>$(NoWarn);CS1591</NoWarn>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- Unsafe needed in order to test CSharpFormatter on pointer types -->
+		<FirelySdkVersion>5.8.2</FirelySdkVersion>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+		<SignAssembly>True</SignAssembly>
+		<DelaySign>true</DelaySign>
+		<AssemblyOriginatorKeyFile>..\..\cql-sdk.publickey</AssemblyOriginatorKeyFile>
+		<IncludeSymbols>True</IncludeSymbols>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
-		<PackageReference Include="FluentAssertions" Version="7.2.0" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.1" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-		<PackageReference Include="MSTest.TestFramework" Version="3.8.3" />
-		<PackageReference Include="MSTest.TestAdapter" Version="3.8.3" />
-		<PackageReference Include="coverlet.collector" Version="6.0.2">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="Hl7.Fhir.R4" Version="$(FirelyNetVersion)" />
+		<PackageReference Include="FluentAssertions" Version="6.12.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+		<PackageReference Include="MSTest.TestFramework" Version="3.3.1" />
+		<PackageReference Include="MSTest.TestAdapter" Version="3.3.1" />
+		<PackageReference Include="coverlet.collector" Version="6.0.2" />
+		<PackageReference Include="Hl7.Fhir.Base" Version="$(FirelySdkVersion)" />
+		<PackageReference Include="Hl7.Fhir.R4" Version="$(FirelySdkVersion)" />
 		<PackageReference Remove="Microsoft.CodeAnalysis.PublicApiAnalyzers" />
 	</ItemGroup>
 
@@ -34,14 +36,13 @@
 		<ProjectReference Include="..\CodeGeneration.NET\CodeGeneration.NET.csproj" />
 		<ProjectReference Include="..\Cql.Compiler\Cql.Compiler.csproj" />
 		<ProjectReference Include="..\Cql.Firely\Cql.Firely.csproj" />
-		<ProjectReference Include="..\Cql.Invocation\Cql.Invocation.csproj" />
 		<ProjectReference Include="..\Cql.Model\Cql.Model.csproj" />
 		<ProjectReference Include="..\Cql.Packaging\Cql.Packaging.csproj" />
 		<ProjectReference Include="..\Cql.Runtime\Cql.Runtime.csproj" />
-		<ProjectReference Include="..\Elm\Elm.csproj" />
+		<ProjectReference Include="..\ELM\Elm.csproj" />
 		<ProjectReference Include="..\Iso8601\Iso8601.csproj" />
 	</ItemGroup>
-
+	
 	<ItemGroup>
 		<None Include="Input\ELM\HL7\*.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -52,7 +53,7 @@
 		<None Include="Input\ELM\Test\*.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
-		<None Include="Input\ELM\Test\*.xml">
+		<None Include="Input\Xml\*.xml">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 		<None Update="Input\ValueSets\*.json">
@@ -60,21 +61,51 @@
 		</None>
 	</ItemGroup>
 
-	<!--
-	Packaging tooling properties. Put these last
-	-->
-
-	<Import Project="..\..\packaging-tooling.props" />
-
-	<PropertyGroup>
-		<LibrarySet>CoreTests.HL7</LibrarySet>
-		<CqlDirectory>$(MSBuildProjectDirectory)/Input/ELM/HL7</CqlDirectory>
-		<ElmDirectory>$(MSBuildProjectDirectory)/Input/ELM/HL7</ElmDirectory>
-		<CSharpDirectory>$(MSBuildProjectDirectory)/CSharp</CSharpDirectory>
-		<!-- <DllDirectory>$(MSBuildProjectDirectory)/Dlls</DllDirectory> -->
-		<!-- <ResourcesDirectory>$(MSBuildProjectDirectory)/Resources</ResourcesDirectory> -->
-	</PropertyGroup>
-
-	<Import Project="..\..\packaging-tooling.Targets.xml" />
-
+	<ItemGroup>
+		<Compile Update="HL7Tests.CqlAggregateFunctionsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlAggregateTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlArithmeticFunctionsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlComparisonOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlConditionalOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlDateTimeOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlErrorsAndMessagingOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlIntervalOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlListOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlLogicalOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlNullologicalOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlStringOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlTypeOperatorsTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.CqlTypesTest.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+		<Compile Update="HL7Tests.ValueLiteralsAndSelectors.cs">
+			<DependentUpon>HL7Tests.cs</DependentUpon>
+		</Compile>
+	</ItemGroup>
 </Project>

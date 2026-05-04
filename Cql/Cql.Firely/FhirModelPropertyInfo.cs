@@ -1,13 +1,14 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
 using Hl7.Fhir.Introspection;
-using Hl7.Fhir.Model;
+using System.Globalization;
+using System.Reflection;
 
 namespace Hl7.Cql.Fhir
 {
@@ -68,17 +69,8 @@ namespace Hl7.Cql.Fhir
         }
 
         // Override to call the mappings GetValue, which is a fast ILEmitted getter
-        public override object? GetValue(
-            object? obj,
-            BindingFlags invokeAttr,
-            Binder? binder,
-            object?[]? index,
-            CultureInfo? culture)
-        {
-            if (obj is not Base b) return null;
-
-            return b.TryGetValue(Mapping.Name, out var value) ? value : null;
-        }
+        public override object? GetValue(object? obj, BindingFlags invokeAttr, Binder? binder, object?[]? index, CultureInfo? culture) =>
+            obj is not null ? Mapping.GetValue(obj) : null;
 
         public override bool IsDefined(Type attributeType, bool inherit)
         {
@@ -88,8 +80,8 @@ namespace Hl7.Cql.Fhir
         // Override to call the mappings SetValue, which is a fast ILEmitted setter
         public override void SetValue(object? obj, object? value, BindingFlags invokeAttr, Binder? binder, object?[]? index, CultureInfo? culture)
         {
-            if (obj is Base b)
-                b.SetValue(Mapping.Name, value);
+            if (obj is not null)
+                Mapping.SetValue(obj, value);
         }
     }
 }

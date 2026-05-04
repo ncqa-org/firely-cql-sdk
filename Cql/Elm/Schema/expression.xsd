@@ -11,7 +11,7 @@
 	<xs:import namespace="urn:hl7-org:cql-annotations:r1" schemaLocation="cqlannotations.xsd"/>
 	<xs:complexType name="Element" abstract="true">
 		<xs:annotation>
-			<xs:documentation>The Element type defines the abstract base type for all library elements in ELM.</xs:documentation>
+			<xs:documentation>The Element type defines the abstract base type for all library elements in Elm.</xs:documentation>
 		</xs:annotation>
 		<xs:sequence>
 			<xs:element name="annotation" type="a:CqlToElmBase" minOccurs="0" maxOccurs="unbounded">
@@ -28,7 +28,7 @@
 		<xs:attribute name="localId" type="xs:string" use="optional"/>
 		<xs:attribute name="locator" type="xs:string" use="optional">
 			<xs:annotation>
-				<xs:documentation>The locator for an ELM node identifies the location in the source document that produced the ELM. The format is L:C[-L:C], where L is a line number and C is a column number. For locators that span a range, an optional range can be given to an ending line and column number. Line and column numbers are 1-based.</xs:documentation>
+				<xs:documentation>The locator for an ELM node identifies the location in the source document that produced the Elm. The format is L:C[-L:C], where L is a line number and C is a column number. For locators that span a range, an optional range can be given to an ending line and column number. Line and column numbers are 1-based.</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 		<xs:attribute name="resultTypeName" type="xs:QName" use="optional">

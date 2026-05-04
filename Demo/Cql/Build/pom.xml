@@ -1,26 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <project>
-	<!--
-	README: https://github.com/cqframework/clinical_quality_language/blob/master/Src/java/cql-to-elm/OVERVIEW.md
-	-->
-
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>firely.cql</groupId>
 	<artifactId>demo</artifactId>
-	<version>1.0</version>
-	<properties>
-		<!--
-		The latest version number can be found under the releases tab of the CQL to ELM CLI repository
-		see: https://github.com/cqframework/clinical_quality_language/releases
-
-		If you change the version here, you also need to update it in these places too:
-		* pom.xml
-		* Java-Dependencies-Vars.ps1
-		* Java-Dependencies-Vars.sh
-		* The Hl7.Cql.Packager.Program.JavaToolVersion for the Packager CLI
-		-->
-		<cql.version>3.29.0</cql.version>
-	</properties>
+	<version>1</version>
 	<repositories>
 		<repository>
 			<id>sonatype-public</id>
@@ -28,17 +11,16 @@
 			<url>https://oss.sonatype.org/content/groups/public/</url>
 		</repository>
 	</repositories>
-
 	<dependencies>
 		<dependency>
 			<groupId>info.cqframework</groupId>
 			<artifactId>cql-to-elm-cli</artifactId>
-			<version>${cql.version}</version>
+			<version>2.11.0</version>
 		</dependency>
 		<dependency>
 			<groupId>info.cqframework</groupId>
 			<artifactId>elm-fhir</artifactId>
-			<version>${cql.version}</version>
+			<version>2.11.0</version>
 		</dependency>
 	</dependencies>
 </project>

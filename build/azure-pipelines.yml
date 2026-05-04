@@ -6,125 +6,54 @@ resources:
     - repository: templates
       type: github
       name: FirelyTeam/azure-pipeline-templates
-      endpoint: FirelyTeam
-      ref: refs/tags/v1
+      endpoint: FirelyTeam 
 
 variables:
   - group: CodeSigning
   - group: APIKeys
-  - template: variables.yml
+  - template: variables.yml  
 
-pool:
+pool: 
   vmImage: $(vmImage)
 
 trigger:
-  branches:
+  branches: 
     include:
     - develop*
     - release*
     - refs/tags/v*
-    - spike*
 
 stages:
-- stage: checkForDocChangesStage
-  displayName: 'Check for changes in docs folder'
+- stage: build
   jobs:
-    - job: CheckDocChangesJob
-      displayName: 'Check for changes in docs folder'
-      pool:
-        vmImage: ubuntu-latest
-      steps:
-        - checkout: self
-          fetchDepth: 0
-        - script: |
-            echo "##vso[task.setvariable variable=SOURCE_BRANCH]$(Build.SourceBranch)"
-            echo "##vso[task.setvariable variable=TARGET_BRANCH]$(System.PullRequest.TargetBranch)"
-        - powershell: |
-            echo "##[group]Checking for changes outside docs folder"
-            # Check if we are in a PR build or normal branch build
-            if ($env:BUILD_REASON -eq "PullRequest") {
-                echo "PR build detected"
-                # PR build: compare source branch with target branch (e.g., main)
-                $CHANGED_FILES = git diff --name-only origin/$env:TARGET_BRANCH
-                echo "Checking changes between $env:TARGET_BRANCH and $env:SOURCE_BRANCH results in the following files: $CHANGED_FILES"
-            } else {
-                echo "Branch build detected"
-                # Branch build: compare current commit with previous commit
-                git fetch origin $env:Build_SourceBranch --depth=2
-                $CHANGED_FILES = git diff --name-only HEAD~1 HEAD
-                echo "Checking results in the following files: $CHANGED_FILES"
-            }
-
-            $skipBuildStage = 'true'
-
-            foreach ($file in $CHANGED_FILES) {
-                if ($file -match '^docs\/.+$' -eq $false) {
-                    $skipBuildStage = 'false'
-                    echo "File $file is not /docs/ folder"
-                    break
-                }
-                echo "File $file is in /docs/ folder"
-            }
-
-
-            if ( $skipBuildStage -eq 'true') {
-              Write-Host "Only /docs/ files changed, skipping build."
-            }
-            else {
-              Write-Host "Changes outside /docs/ detected, proceeding with build."
-            }
-            echo "##vso[task.setvariable variable=skipBuild;isOutput=true]$skipBuildStage"
-
-          displayName: 'Check for changes outside docs folder'
-          name: checkForDocChanges
-
-# Include the build-test-sign template which defines Build, Test, and Package stages
-- template: build-test-sign.yml
-  parameters:
-    buildStageDependsOn: checkForDocChangesStage
-    buildStageCondition: and(succeeded(), not(eq(dependencies.checkForDocChangesStage.outputs['CheckDocChangesJob.checkForDocChanges.skipBuild'], 'true')))
-    dotNetCoreVersion: $(DOTNET_CORE_SDK)
-    multiTargetTestProjects: $(multiTargetTestProjects)
-    net10IntegrationTestProjects: $(net10IntegrationTestProjects)
-    buildConfiguration: $(buildConfiguration)
-    testConsoleLoggerVerbosity: $(testConsoleLoggerVerbosity)
-    checkoutSubmodules: 'true'
-    ${{ if not(startswith(variables['Build.SourceBranch'], 'refs/tags/v')) }}:  # 'normal' build
-      useVersionSuffix: true
-    ${{ else }}: # release mode
-      useVersionSuffix: false
-    # Only sign on release tags or develop branch (not PRs)
-    ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
-      shouldSign: true
-      azureServiceConnectionForSigning: 'AzureTrustedSigningPrincipal'
-      trustedSigningAccountEndpoint: 'https://weu.codesigning.azure.net/'
-      trustedSigningAccountName: 'FirelyCodeSigning'
-      certificateProfileName: 'FirelyCodeSigning'
-    ${{ else }}:
-      shouldSign: false
-      azureServiceConnectionForSigning: ''
-      trustedSigningAccountEndpoint: ''
-      trustedSigningAccountName: ''
-      certificateProfileName: ''
-    signingKeyFileName: 'cql-sdk.snk'
-    filesForSigning: >-
-      $(Build.SourcesDirectory)\Cql\*\bin\Release\*\Hl7.Cql*.dll,
-      $(Build.SourcesDirectory)\Cql\*\bin\Release\*\Ncqa.Cql*.dll,
-      $(Build.SourcesDirectory)*\bin\Release\*\Cql.*.dll,
-      $(Build.SourcesDirectory)*\bin\Release\*\PackagerCLI.dll
-    filesToExcludeForSigning: >-
-      *CodeGeneration*,
-      *CoreTests*
-    nuGetServiceConnections: GitHubPackageGetFeed
+  - ${{ if not(startswith(variables['Build.SourceBranch'], 'refs/tags/v')) }}:  # 'normal' build 
+    - template: templates/build.yml  # Template reference
+      parameters:
+        dotNetCoreVersion: $(DOTNET_CORE_SDK)
+        useVersionSuffix: true
+        packageArtifacts: true
+        restoreDependencies: true
+        nuGetServiceConnections: GitHubPackageGetFeed
+        nuGetSources: --source https://nuget.pkg.github.com/FirelyTeam/index.json
+        pool: 
+          vmImage: $(vmImage)
+    
+  - ${{ if startswith(variables['Build.SourceBranch'], 'refs/tags/v') }}:  # release mode
+    - template: templates/build.yml  # Template reference
+      parameters:
+        dotNetCoreVersion: $(DOTNET_CORE_SDK)
+        useVersionSuffix: false
+        packageArtifacts: true
+        restoreDependencies: true
+        pool: 
+          vmImage: $(vmImage)
 
 - stage: deployToGitHub
-  dependsOn: Test
+  dependsOn: build
   displayName: Deploy packages To Github
   condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest')) # not a PR
   jobs:
   - deployment: gitHub
-    pool:
-      vmImage: $(vmImage)
     displayName: Deploy Packages to GitHub
     environment: GitHub
     strategy:
@@ -135,17 +64,15 @@ stages:
             parameters:
               artifact: 'NuGetPackages'
               source: https://nuget.pkg.github.com/FirelyTeam/index.json
-              apiKey: $(GITHUB_PACKAGES_APIKEY)
+              apiKey: $(GITHUB_PACKAGES_APIKEY)                
 
 - stage: deployToNuget
   dependsOn: deployToGitHub
   displayName: Deploy packages to NuGet
   condition: and(succeeded(), startswith(variables['Build.SourceBranch'], 'refs/tags/v'))
   jobs:
-  - deployment: NuGet
-    pool:
-      vmImage: $(vmImage)
-    displayName: Deploy Packages to Nuget
+  - deployment: NuGet    
+    displayName: Deploy Packages to Nuget      
     environment: NuGet
     strategy:
       runOnce:

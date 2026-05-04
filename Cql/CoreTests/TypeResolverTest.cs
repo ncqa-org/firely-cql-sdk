@@ -1,14 +1,9 @@
-﻿/*
- * Copyright (c) 2025, Firely, NCQA and contributors
- * See the file CONTRIBUTORS for details.
- *
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
- */
-
-using Hl7.Cql.Abstractions;
+﻿using Hl7.Cql.Abstractions;
 using Hl7.Cql.Fhir;
 using Hl7.Cql.Model;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace CoreTests
 {
@@ -46,7 +41,7 @@ namespace CoreTests
             {
                 var elmId = $"{{{model.url}}}{typeInfo.name}";
                 var type = typeResolver.ResolveType(elmId);
-                foreach (var element in typeInfo.element ?? [])
+                foreach (var element in typeInfo.element ?? Enumerable.Empty<ClassInfoElement>())
                 {
                     var property = typeResolver.GetProperty(type, element.name);
                     Assert.IsNotNull(property, $"Missing property {element.name} in {typeInfo.name}.");
@@ -56,7 +51,7 @@ namespace CoreTests
 
         public static IEnumerable<object[]> GetData()
         {
-            yield return [new FhirTypeResolver(Hl7.Fhir.Model.ModelInfo.ModelInspector)];
+            yield return new object[] { new FhirTypeResolver(Hl7.Fhir.Model.ModelInfo.ModelInspector) };
         }
     }
 }

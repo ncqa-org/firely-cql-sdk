@@ -1,37 +1,39 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/cql-sdk/main/LICENSE
  */
 
-using Hl7.Cql.Compiler.Infrastructure;
 using Hl7.Cql.Runtime;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 
-namespace Hl7.Cql.Compiler.Expressions
+namespace Hl7.Cql.Compiler
 {
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 
     /// <summary>
     /// This is a custom expression representing the invocation of a function using
-    /// a lookup on a <see cref="DelegateDefinitionDictionary"/>.
+    /// a lookup on a <see cref="DefinitionDictionary{T}"/>.
     /// </summary>
     /// <remarks>The expression reduces to a lookup on a
-    /// <see cref="DelegateDefinitionDictionary"/> expression by item, plus the invocation
+    /// <see cref="DefinitionDictionary{Delegate}"/> expression by item, plus the invocation
     /// of the delegate, if found.</remarks>.
     internal class FunctionCallExpression : Expression
     {
-        private static readonly ConstructorInfo DefinitionSignatureCtor =
-            ReflectionUtility.ConstructorOf(() => new DefinitionSignature(default(string)!, default(Type[])!));
-
-        private static readonly MethodInfo DefinitionDictionaryIndexGetter =
-            ReflectionUtility.MethodOf(() => default(DelegateDefinitionDictionary)![default(string)!, default(DefinitionSignature)!]);
+        private static readonly PropertyInfo itemProperty =
+            typeof(DefinitionDictionary<Delegate>)
+            .GetProperty("Item", new[] { typeof(string), typeof(string), typeof(Type[]) })!;
 
         public FunctionCallExpression(Expression definitions,
             string libraryName, string functionName, IReadOnlyCollection<Expression> arguments, Type functionType)
         {
-            if (definitions.Type != typeof(DelegateDefinitionDictionary))
+            if (definitions.Type != typeof(DefinitionDictionary<Delegate>))
                 throw new ArgumentException($"Argument should be of type {nameof(DefinitionDictionary<Delegate>)}",
                     nameof(definitions));
 
@@ -51,26 +53,23 @@ namespace Hl7.Cql.Compiler.Expressions
 
         public override Expression Reduce()
         {
-            return CallDefinitionDictionaryIndexGet(FunctionType, Definitions, LibraryName, FunctionName, Arguments);
-        }
+            var argumentTypesExpressions = Arguments
+                .Skip(1)
+                .Select(a => Constant(a.Type));
 
-        internal static Expression CallDefinitionDictionaryIndexGet(
-            Type functionType,
-            Expression definitions,
-            string libraryName,
-            string functionName,
-            IReadOnlyCollection<Expression> arguments)
-        {
-            var argumentTypesExpressions = arguments
-                                           .Skip(1)
-                                           .Select(a => Constant(a.Type));
+            var typeArrayInitializer = NewArrayInit(typeof(Type), argumentTypesExpressions);
 
-            var newArrayExpression = NewArrayInit(typeof(Type), argumentTypesExpressions);
-            var definitionSignatureCtor = DefinitionSignatureCtor;
-            var definitionSignature = New(definitionSignatureCtor, [Constant(functionName), newArrayExpression]);
-            var indexExpression = Call(definitions, DefinitionDictionaryIndexGetter, [Constant(libraryName), definitionSignature]);
-            var asFunc = indexExpression.NewTypeAsExpression(functionType);
-            var invoke = Invoke(asFunc, arguments);
+            var indices = new Expression[]
+            {
+                Constant(LibraryName),
+                Constant(FunctionName),
+                typeArrayInitializer
+            };
+
+            var index = MakeIndex(Definitions, itemProperty, indices);
+            var asFunc = TypeAs(index, FunctionType);
+            var invoke = Invoke(asFunc, Arguments);
+
             return invoke;
         }
 
@@ -83,9 +82,10 @@ namespace Hl7.Cql.Compiler.Expressions
 
         public Expression Update(IReadOnlyCollection<Expression> arguments)
         {
-            if (Arguments.SequenceEqual(arguments))
+            if (Enumerable.SequenceEqual(Arguments, arguments))
                 return this;
-            return new FunctionCallExpression(Definitions, LibraryName, FunctionName, arguments, FunctionType);
+            else
+                return new FunctionCallExpression(Definitions, LibraryName, FunctionName, arguments, FunctionType);
         }
 
         public override Type Type => DefinitionCallExpression.GetReturnTypeFromDelegateType(FunctionType);

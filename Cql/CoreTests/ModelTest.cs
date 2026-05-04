@@ -1,16 +1,13 @@
-﻿/*
- * Copyright (c) 2025, Firely, NCQA and contributors
- * See the file CONTRIBUTORS for details.
- *
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
- */
-
-using Hl7.Cql.Iso8601;
+﻿using Hl7.Cql.Iso8601;
 using Hl7.Cql.Model;
 using Hl7.Cql.Operators;
 using Hl7.Cql.Primitives;
 using Hl7.Cql.Runtime;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace CoreTests
 {
@@ -60,17 +57,24 @@ namespace CoreTests
             public DateIso8601 birthDate { get; set; }
         }
 
-        private class UnitTestDataSource(IEnumerable<object> data) : IDataSource
+        private class UnitTestDataSource : IDataSource
         {
-            public IList<object> Data { get; } = data?.ToList() ?? new List<object>();
+            public UnitTestDataSource(IEnumerable<object> data)
+            {
+                Data = data?.ToList() ?? new List<object>();
+            }
+
+            public IList<object> Data { get; }
 
 #if VNEXT
             public event EventHandler DataChanged;
 #endif
 
-            public IEnumerable<T> Retrieve<T>(RetrieveParameters _) where T : class =>
+            public IEnumerable<T> RetrieveByCodes<T>(IEnumerable<CqlCode> codes = null, PropertyInfo _ = null) where T : class =>
                 Data.OfType<T>();
 
+            public IEnumerable<T> RetrieveByValueSet<T>(CqlValueSet valueSet = null, PropertyInfo _ = null) where T : class =>
+                Data.OfType<T>();
         }
 
         private class UnitTestTypeResolver : BaseTypeResolver

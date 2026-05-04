@@ -1,33 +1,15 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
-	<Import Project="cql-base.props" />
-
 	<PropertyGroup>
-		<!-- ## Compiler settings -->
-		<TargetFrameworks>net8.0;net10.0</TargetFrameworks>
-		<AnalysisLevelGlobalization>latest-recommended</AnalysisLevelGlobalization>
-		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-		<!-- Too many bogus warnings, see https://github.com/dotnet/roslyn-analyzers/issues/6757 -->
-		<NoWarn>$(NoWarn);RS0026</NoWarn>
+		<TargetFramework>net9.0</TargetFramework>
 	</PropertyGroup>
 
-	<PropertyGroup
-		Condition="'$(Configuration)' == 'Release'">
-		<GenerateDocumentationFile>True</GenerateDocumentationFile>
-	</PropertyGroup>
-
-
+	<!-- Solution-wide properties for NuGet packaging -->
 	<PropertyGroup>
-		<!-- ## Solution-wide properties for NuGet packaging -->
-		<!--
-			## Instructions when updating VersionPrefix/VersionSuffix : https://github.com/FirelyTeam/firely-cql-sdk/wiki/Creating-Tags-and-Releases
-			Keep this in sync between cql-sdk.props and cql-demo.props
-		-->
-		<VersionPrefix>2.5.0</VersionPrefix>
-		<!-- <VersionSuffix>rc.1</VersionSuffix> -->
-
+		<VersionPrefix>1.0.0</VersionPrefix>
+		<VersionSuffix>rc3</VersionSuffix>
 		<Authors>NCQA, Firely (info@fire.ly) and contributors</Authors>
-		<Copyright>Copyright 2013-2024 NCQA, Firely. Contains materials (C) HL7 International</Copyright>
+		<Copyright>Copyright 2013-2023 NCQA, Firely. Contains materials (C) HL7 International</Copyright>
 		<PackageProjectUrl>https://github.com/FirelyTeam/firely-cql-sdk</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/FirelyTeam/firely-cql-sdk</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
@@ -42,18 +24,39 @@
 		<None Include="..\..\README.md" Pack="true" PackagePath=""/>
 	</ItemGroup>
 
-	<ItemGroup
-		Condition="'$(Configuration)' == 'Release'">
-
-		<PackageReference
-			Include="Microsoft.SourceLink.GitHub"
-			Version="8.0.0"
-			PrivateAssets="All"/>
-
-		<PackageReference
-			Include="Microsoft.CodeAnalysis.PublicApiAnalyzers"
-			Version="3.12.0-beta1.25081.1"
-			PrivateAssets="All" />
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
 	</ItemGroup>
 
+	<PropertyGroup>
+		<FirelySdkVersion>5.8.2</FirelySdkVersion>
+	</PropertyGroup>
+
+	<!-- Compiler settings -->
+	<PropertyGroup>
+		<Nullable>enable</Nullable>
+		<LangVersion>11.0</LangVersion>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<Configurations>Debug;Release;FullDebug</Configurations>
+		<AnalysisLevelGlobalization>latest-recommended</AnalysisLevelGlobalization>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)' == 'Debug' Or '$(Configuration)' == 'FullDebug' ">
+		<DebugType>portable</DebugType>
+		<DebugSymbols>True</DebugSymbols>
+		<Optimize>false</Optimize>
+		<DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
+		<LibraryPKHash></LibraryPKHash>
+	</PropertyGroup>	
+	
+	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+		<SignAssembly>True</SignAssembly>
+		<DelaySign>true</DelaySign>
+		<AssemblyOriginatorKeyFile>..\..\cql-sdk.publickey</AssemblyOriginatorKeyFile>
+		<IncludeSymbols>True</IncludeSymbols>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<LibraryPKHash>00240000048000009400000006020000002400005253413100040000010001006d866cf0363db3976082a2439c420bd942b78243c0ce6c289f3c07d6901ecf149c38bafc12167f6eba7618b288e5327a7e4ab554c9a294ae6c68d7455b6562f846455b6bfdde68542a7046a632f1730a1647f2d365f8a25f73860c14d1428e7319df673e2d3212fa535f310c52a7c7ec17de772cb49961f4ea195fa4ea601dcd</LibraryPKHash>
+	</PropertyGroup>
 </Project>

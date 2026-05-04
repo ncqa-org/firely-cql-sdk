@@ -1,11 +1,16 @@
 ﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
-/*
+/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
+
+using System;
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Hl7.Cql.Iso8601
 {
@@ -201,8 +206,7 @@ namespace Hl7.Cql.Iso8601
                                     throw new ArgumentException("Offset hours must between [-14,14]", nameof(osHour));
                                 if (osMinute.HasValue)
                                 {
-                                    var abs = Math.Abs(osMinute.Value);  
-                                    if (abs > 59)
+                                    if (osMinute.Value < 0 || osMinute.Value > 59)
                                         throw new ArgumentException("Offset minutes must between [0,59]", nameof(osMinute));
                                 }
                             }
@@ -274,8 +278,6 @@ namespace Hl7.Cql.Iso8601
                             }
                             // set the timezone if time precision is desired
                             OffsetHour = osHour;
-                            if (osHour < 0 && osMinute > 0)
-                                osMinute *= -1;
                             OffsetMinute = osMinute;
 
                         }

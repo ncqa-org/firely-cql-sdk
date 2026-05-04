@@ -7,12 +7,7 @@
 		<RootNamespace>Hl7.Cql.Model</RootNamespace>
 		<Product>CQL engine runtime model binding</Product>
 		<Description>Support package for Hl7.Cql. Incorporates CQL model information into the runtime.</Description>
-		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<None Include="README.md" />
-	</ItemGroup>
 
 	<ItemGroup>
 		<None Remove="Models\elm-modelinfo-r1.xml" />
@@ -32,8 +27,7 @@
 		<ProjectReference Include="..\Cql.Runtime\Cql.Runtime.csproj" />
 		<InternalsVisibleTo Include="CoreTests" Key="$(LibraryPKHash)" />
 		<InternalsVisibleTo Include="Hl7.Cql.Compiler" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="Hl7.Cql.CqlToElm" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="CqlToElmTests" Key="$(LibraryPKHash)" />
+		<InternalsVisibleTo Include="Hl7.Cql.CqlToElm.Test" Key="$(LibraryPKHash)" />
 	</ItemGroup>
 
 </Project>

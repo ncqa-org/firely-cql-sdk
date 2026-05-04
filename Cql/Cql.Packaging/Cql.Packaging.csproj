@@ -1,6 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<Import Project="..\..\cql-sdk.props" />
+
 
 	<PropertyGroup>
 		<ImplicitUsings>enable</ImplicitUsings>
@@ -8,23 +9,18 @@
 		<RootNamespace>Hl7.Cql.Packaging</RootNamespace>
 		<Product>FHIR Library export for CQL artifacts.</Product>
 		<Description>Support package for Hl7.Cql. Contains support for packaging CQL artifacts as a FHIR Library resource.</Description>
-		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Hl7.Fhir.R4" Version="$(FirelyNetVersion)" />
+		<PackageReference Include="Hl7.Fhir.R4" Version="$(FirelySdkVersion)" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\CodeGeneration.NET\CodeGeneration.NET.csproj" />
 		<ProjectReference Include="..\Cql.Compiler\Cql.Compiler.csproj" />
 		<ProjectReference Include="..\Cql.Firely\Cql.Firely.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
+		<ProjectReference Include="..\Cql.Primitives\Cql.Primitives.csproj" />
+		<ProjectReference Include="..\Graph\Graph.csproj" />
 		<InternalsVisibleTo Include="Hl7.Cql.Packager" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="Test.Measures.Demo" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="CoreTests" Key="$(LibraryPKHash)" />
-		<InternalsVisibleTo Include="CqlToElmTests" Key="$(LibraryPKHash)" />
 	</ItemGroup>
 </Project>

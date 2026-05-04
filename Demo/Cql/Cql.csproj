@@ -1,20 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<Import Project="..\cql-demo.props" />
-
-	<Import Project="Build\CqlToElm.Targets.xml" />
-
-	<ItemGroup>
-	  <ProjectReference Include="..\..\Cql\PackagerCLI\PackagerCLI.csproj" />
-	</ItemGroup>
-
+	<Import Project="Build\Cql.Targets.xml" />
 	<PropertyGroup>
-		<AccelerateBuildsInVisualStudio>false</AccelerateBuildsInVisualStudio>
-		<Configurations>Debug;Release</Configurations>
+		<TargetFramework>net6.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Resource Include="Build\pom.xml" />
+		<Cql Include="input\*.cql" />
 	</ItemGroup>
 
 </Project>

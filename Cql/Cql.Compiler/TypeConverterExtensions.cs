@@ -1,17 +1,18 @@
-﻿/*
+﻿#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
+using Hl7.Cql.Conversion;
 using Hl7.Cql.Elm;
+using System;
 
 namespace Hl7.Cql.Compiler
 {
-    using TypeConverter = Hl7.Cql.Conversion.TypeConverter;
-
     internal static class TypeConverterExtensions
     {
         public static TypeConverter AddElmConversions(this TypeConverter converter)
@@ -20,15 +21,5 @@ namespace Hl7.Cql.Compiler
             converter.AddConversion<string, DateTimePrecision>(Enum.Parse<DateTimePrecision>);
             return converter;
         }
-
-        public static ListSortDirection ListSortOrder(this SortDirection direction) => direction switch
-        {
-            SortDirection.asc => ListSortDirection.Ascending,
-            SortDirection.ascending => ListSortDirection.Ascending,
-            SortDirection.desc => ListSortDirection.Descending,
-            SortDirection.descending => ListSortDirection.Descending,
-            _ => throw new ArgumentException($"Unrecognized sort direction {Enum.GetName(typeof(SortDirection), direction)}")
-        };
-
     }
 }

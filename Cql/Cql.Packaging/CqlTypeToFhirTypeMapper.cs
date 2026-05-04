@@ -1,7 +1,7 @@
-﻿/*
+﻿/* 
  * Copyright (c) 2023, NCQA and contributors
  * See the file CONTRIBUTORS for details.
- *
+ * 
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
@@ -10,7 +10,7 @@ using Hl7.Cql.Elm;
 using Hl7.Cql.Primitives;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
-using Hl7.Cql.Abstractions.Infrastructure;
+using System.Reflection;
 
 namespace Hl7.Cql.Packaging
 {
@@ -120,7 +120,7 @@ namespace Hl7.Cql.Packaging
                 case CqlPrimitiveType.Boolean:
                     return new CqlTypeToFhirMapping(FHIRAllTypes.Boolean, cqlType);
                 case CqlPrimitiveType.Code:
-                    return new CqlTypeToFhirMapping(FHIRAllTypes.Coding, cqlType);
+                    return new CqlTypeToFhirMapping(FHIRAllTypes.Code, cqlType);
                 case CqlPrimitiveType.CodeSystem:
                     return new CqlTypeToFhirMapping(FHIRAllTypes.CodeSystem, cqlType);
                 case CqlPrimitiveType.Concept:
@@ -129,12 +129,6 @@ namespace Hl7.Cql.Packaging
                     return new CqlTypeToFhirMapping(FHIRAllTypes.Date, cqlType);
                 case CqlPrimitiveType.DateTime:
                     return new CqlTypeToFhirMapping(FHIRAllTypes.DateTime, cqlType);
-                case CqlPrimitiveType.Long:
-#if FhirReleaseR4
-                      return new CqlTypeToFhirMapping(FHIRAllTypes.String, cqlType);
-//#else FhirReleaseR5
-//                    return new CqlTypeToFhirMapping(FHIRAllTypes.Integer64, cqlType);
-#endif
                 case CqlPrimitiveType.Decimal:
                     return new CqlTypeToFhirMapping(FHIRAllTypes.Decimal, cqlType);
                 case CqlPrimitiveType.List:
@@ -202,12 +196,6 @@ namespace Hl7.Cql.Packaging
         /// <returns>the Type mapping, or null</returns>
         public CqlTypeToFhirMapping? TypeEntryFor(Type type)
         {
-            // Check if the type is a CQL value tuple first, before checking other value types
-            if (type.IsCqlValueTuple())
-            {
-                return TypeEntryFor(CqlPrimitiveType.Tuple);
-            }
-
             if (type.IsPrimitive || type.IsValueType || type == typeof(string))
             {
                 var fhirType = PrimitiveToFhir(type);
@@ -243,8 +231,7 @@ namespace Hl7.Cql.Packaging
                 }
                 return TypeEntryFor(cqlPrimitiveAttribute.Type);
             }
-
-            if (type.IsImplementingGenericTypeDefinition(typeof(IEnumerable<>)))
+            if (IsOrImplementsIEnumerableOfT(type))
             {
                 var elementType = TypeResolver.GetListElementType(type);
                 if (elementType is null)
@@ -267,7 +254,6 @@ namespace Hl7.Cql.Packaging
         {
             if (resultTypeSpecifier is null)
                 return null;
-
             switch (resultTypeSpecifier)
             {
                 case IntervalTypeSpecifier interval:
@@ -276,24 +262,18 @@ namespace Hl7.Cql.Packaging
 
                     var pointType = TypeEntryFor(interval.pointType);
                     return TypeEntryFor(CqlPrimitiveType.Interval, pointType);
-
                 case ListTypeSpecifier list:
                     if (list.elementType is null)
                         return null;
-
                     var elementType = TypeEntryFor(list.elementType);
                     if (elementType is null)
                         return null;
-
                     return TypeEntryFor(CqlPrimitiveType.List, elementType);
-
                 case NamedTypeSpecifier named:
                     return TypeEntryFor(named.name.Name);
-
                 case ChoiceTypeSpecifier:
                 case TupleTypeSpecifier:
                     return new CqlTypeToFhirMapping(FHIRAllTypes.Basic, CqlPrimitiveType.Tuple);
-
                 default:
                     return null;
             }
@@ -346,7 +326,7 @@ namespace Hl7.Cql.Packaging
                 _ => element.resultTypeName != null ? TypeEntryFor(element.resultTypeName.Name) : TypeEntryFor(element.resultTypeSpecifier)
             };
         }
-        private bool IsOrImplementsIEnumerableOfT(Type type) => type.IsImplementingGenericTypeDefinition(typeof(IEnumerable<>));
+        private bool IsOrImplementsIEnumerableOfT(Type type) => TypeResolver.ImplementsGenericInterface(type, typeof(IEnumerable<>));
 
         private FHIRAllTypes? PrimitiveToFhir(Type type)
         {
