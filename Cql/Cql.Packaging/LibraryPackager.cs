@@ -425,6 +425,35 @@ namespace Hl7.Cql.Packaging
             }
         };
 
+        /// <summary>
+        /// Compiles a collection of ELM libraries into a new collectible <see cref="AssemblyLoadContext"/>.
+        /// All transitive dependencies must be present in <paramref name="elmLibraries"/>.
+        /// The caller is responsible for calling <see cref="AssemblyLoadContext.Unload"/> when done.
+        /// </summary>
+        public static AssemblyLoadContext CompileElmLibraries(
+            IEnumerable<Elm.Library> elmLibraries,
+            ILoggerFactory logFactory,
+            int cacheSize = 0)
+        {
+            var typeResolver = new FhirTypeResolver(ModelInfo.ModelInspector);
+            FhirTypeConverter.InitializeCache(cacheSize);
+            var typeConverter = FhirTypeConverter.Default;
+            var typeManager = new TypeManager(typeResolver);
+            var operatorBinding = new CqlOperatorsBinding(typeResolver, typeConverter);
+            var compiler = new AssemblyCompiler(typeResolver, typeManager, operatorBinding);
+
+            var libraries = elmLibraries.ToList();
+            var assemblyData = compiler.Compile(libraries, logFactory);
+
+            var asmContext = new AssemblyLoadContext($"DynamicCql-{Guid.NewGuid():N}", isCollectible: true);
+            foreach (var kvp in assemblyData)
+            {
+                using var ms = new MemoryStream(kvp.Value.Binary);
+                asmContext.LoadFromStream(ms);
+            }
+            return asmContext;
+        }
+
         internal TypeConverter TypeConverter { get; }
 
         private ParameterDefinition ElmParameterToFhir(Hl7.Cql.Elm.ParameterDef elmParameter,
