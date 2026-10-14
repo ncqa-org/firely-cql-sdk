@@ -4985,6 +4985,258 @@ namespace CoreTests
             Assert.AreEqual(true, result);
         }
                                         
+        /// <summaray>
+		///define "NullBoundariesProperlyIncludesIntegerInterval":
+		///	( Interval[null as Integer, null as Integer] properly includes Interval[1, 10] ) = true
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void NullBoundariesProperlyIncludesIntegerInterval_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "NullBoundariesProperlyIncludesIntegerInterval"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "IntegerIntervalProperlyIncludedInMaxIntervalTrue":
+		///	( Interval[1, 10] properly included in Interval[null, null] ) = true
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void IntegerIntervalProperlyIncludedInMaxIntervalTrue_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "IntegerIntervalProperlyIncludedInMaxIntervalTrue"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestMaxIntervalEndsFalse":
+		///	( Interval[1, 10] ends Interval[null, null] ) = false
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestMaxIntervalEndsFalse_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestMaxIntervalEndsFalse"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestUnknownIntervalEndsNull":
+		///	( Interval[1, 10] ends Interval(null, null) ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestUnknownIntervalEndsNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestUnknownIntervalEndsNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestMaxIntervalExceptNull":
+		///	( Interval[null as Integer, null as Integer] except Interval[null as Integer, null as Integer] ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestMaxIntervalExceptNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestMaxIntervalExceptNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestIntegerInMaxIntervalTrue":
+		///	( 5 in Interval[null, null] ) = true
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestIntegerInMaxIntervalTrue_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestIntegerInMaxIntervalTrue"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestIntegerInUnknownIntervalNull":
+		///	( 5 in Interval(null, null) ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestIntegerInUnknownIntervalNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestIntegerInUnknownIntervalNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestMaxIntervalOverlapsTrue":
+		///	( Interval[null, null] overlaps Interval[1, 10] ) = true
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestMaxIntervalOverlapsTrue_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestMaxIntervalOverlapsTrue"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestUnknownIntervalOverlapsNull":
+		///	( Interval(null, null) overlaps Interval[1, 10] ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestUnknownIntervalOverlapsNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestUnknownIntervalOverlapsNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestMaxIntervalOverlapsBeforeTrue":
+		///	( Interval[null, null] overlaps before Interval[1, 10] ) = true
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestMaxIntervalOverlapsBeforeTrue_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestMaxIntervalOverlapsBeforeTrue"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestUnknownIntervalOverlapsBeforeNull":
+		///	( Interval(null, null) overlaps before Interval[1, 10] ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestUnknownIntervalOverlapsBeforeNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestUnknownIntervalOverlapsBeforeNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestMaxIntervalOverlapsAfterTrue":
+		///	( Interval[null, null] overlaps after Interval[1, 10] ) = true
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestMaxIntervalOverlapsAfterTrue_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestMaxIntervalOverlapsAfterTrue"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestUnknownIntervalOverlapsAfterNull":
+		///	( Interval(null, null) overlaps after Interval[1, 10] ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestUnknownIntervalOverlapsAfterNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestUnknownIntervalOverlapsAfterNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestPointFromUnknownIntervalNull":
+		///	( point from Interval(null as Integer, null as Integer) ) = null as Integer
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestPointFromUnknownIntervalNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestPointFromUnknownIntervalNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestMaxIntervalStartsFalse":
+		///	( Interval[null, null] starts Interval[1, 10] ) = false
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestMaxIntervalStartsFalse_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestMaxIntervalStartsFalse"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestUnknownIntervalStartsNull":
+		///	( Interval(null, null) starts Interval[1, 10] ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestUnknownIntervalStartsNull_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestUnknownIntervalStartsNull"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestUnionMaxInterval":
+		///	( Interval[null, null] union Interval[1, 10] ) = Interval[null, null]
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestUnionMaxInterval_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestUnionMaxInterval"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+                                        
+        /// <summaray>
+		///define "TestUnionUnknownInterval":
+		///	( Interval(null, null) union Interval[1, 10] ) = null
+		/// </summary>
+        [TestCategory("CqlIntervalOperatorsTest")]
+        [TestMethod]
+        public void TestUnionUnknownInterval_Test()
+        {
+            var lambda = LambdasByTestName["CqlIntervalOperatorsTest", "TestUnionUnknownInterval"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(null, result);
+        }
+                                        
     }
 }
                 

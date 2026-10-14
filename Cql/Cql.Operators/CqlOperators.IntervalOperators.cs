@@ -20,9 +20,14 @@ namespace Hl7.Cql.Runtime
     {
         #region Interval
 
+        // Interval[null, null] is the maximum interval of the point type; any other interval with
+        // two null boundaries (e.g. Interval(null, null)) is unknown and evaluates to null.
+        private static bool IsUnknownInterval(bool? lowClosed, bool? highClosed) =>
+            !((lowClosed ?? false) && (highClosed ?? false));
+
         public CqlInterval<int?>? Interval(int? low, int? high, bool? lowClosed, bool? highClosed)
         {
-            if (low is null && high is null)
+            if (low is null && high is null && IsUnknownInterval(lowClosed, highClosed))
                 return null;
             else
             {
@@ -33,7 +38,7 @@ namespace Hl7.Cql.Runtime
         }
         public CqlInterval<decimal?>? Interval(decimal? low, decimal? high, bool? lowClosed, bool? highClosed)
         {
-            if (low is null && high is null)
+            if (low is null && high is null && IsUnknownInterval(lowClosed, highClosed))
                 return null;
             else
             {
@@ -44,7 +49,7 @@ namespace Hl7.Cql.Runtime
         }
         public CqlInterval<long?>? Interval(long? low, long? high, bool? lowClosed, bool? highClosed)
         {
-            if (low is null && high is null)
+                    if (low is null && high is null && IsUnknownInterval(lowClosed, highClosed))
                 return null;
             else
             {
@@ -55,7 +60,7 @@ namespace Hl7.Cql.Runtime
         }
         public CqlInterval<CqlQuantity?>? Interval(CqlQuantity? low, CqlQuantity? high, bool? lowClosed, bool? highClosed)
         {
-            if (low is null && high is null)
+                    if (low is null && high is null && IsUnknownInterval(lowClosed, highClosed))
                 return null;
             else
             {
@@ -66,7 +71,7 @@ namespace Hl7.Cql.Runtime
         }
         public CqlInterval<CqlDate?>? Interval(CqlDate? low, CqlDate? high, bool? lowClosed, bool? highClosed)
         {
-            if (low is null && high is null)
+                    if (low is null && high is null && IsUnknownInterval(lowClosed, highClosed))
                 return null;
             else
             {
@@ -78,7 +83,7 @@ namespace Hl7.Cql.Runtime
 
         public CqlInterval<CqlDateTime?>? Interval(CqlDateTime? low, CqlDateTime? high, bool? lowClosed, bool? highClosed)
         {
-            if (low is null && high is null)
+                    if (low is null && high is null && IsUnknownInterval(lowClosed, highClosed))
                 return null;
             else
             {
@@ -89,7 +94,7 @@ namespace Hl7.Cql.Runtime
         }
         public CqlInterval<CqlTime?>? Interval(CqlTime? low, CqlTime? high, bool? lowClosed, bool? highClosed)
         {
-            if (low is null && high is null)
+                    if (low is null && high is null && IsUnknownInterval(lowClosed, highClosed))
                 return null;
             else
             {
@@ -1918,8 +1923,8 @@ namespace Hl7.Cql.Runtime
                 return null;
             left = toClosed(left!)!;
             right = toClosed(right!)!;
-            if (Compare(left.low ?? Maximum<T>()!, right.high ?? Minimum<T>()!, precision) <= 0
-                && Compare(left.high ?? Minimum<T>()!, right.high ?? Maximum<T>()!, precision) > 0)
+            if (Compare(left.low ?? Minimum<T>()!, right.high ?? Maximum<T>()!, precision) <= 0
+                && Compare(left.high ?? Maximum<T>()!, right.high ?? Maximum<T>()!, precision) > 0)
                 return true;
             else
                 return false;
@@ -1963,7 +1968,9 @@ namespace Hl7.Cql.Runtime
         #region Point from
 
         public T? PointFrom<T>(CqlInterval<T?>? argument) =>
-           argument == null ? default : (Compare(argument!.low!, argument!.high!, null) == 0 ? argument.low : throw new InvalidOperationException("PointFrom can not be extracted  - interval is too wide"));
+           argument == null ? default : (argument.low == null && argument.high == null) || Compare(argument!.low!, argument!.high!, null) != 0
+               ? throw new InvalidOperationException("PointFrom can not be extracted  - interval is too wide")
+               : argument.low;
 
         #endregion
 
@@ -2273,20 +2280,25 @@ namespace Hl7.Cql.Runtime
             if (left == null || right == null) return null;
             else
             {
-                if (Compare(left.low!, right.low!, null) <= 0)
+                // A closed null boundary is the min/max of the point type; an open null boundary is unknown.
+                var leftLow = left.low ?? (left.lowClosed == true ? Minimum<T>() : left.low);
+                var leftHigh = left.high ?? (left.highClosed == true ? Maximum<T>() : left.high);
+                var rightLow = right.low ?? (right.lowClosed == true ? Minimum<T>() : right.low);
+                var rightHigh = right.high ?? (right.highClosed == true ? Maximum<T>() : right.high);
+                if (Compare(leftLow!, rightLow!, null) <= 0)
                 {
-                    if (Compare(left.high!, right.low!, null) >= 0)
+                    if (Compare(leftHigh!, rightLow!, null) >= 0)
                     {
-                        if (Compare(left.high!, right.high!, null) < 0) return new CqlInterval<T>(left.low, right.high, left.lowClosed, right.highClosed);
+                        if (Compare(leftHigh!, rightHigh!, null) < 0) return new CqlInterval<T>(left.low, right.high, left.lowClosed, right.highClosed);
                         else return left;
                     }
                     else return null;
                 }
                 else
                 {
-                    if (Compare(right.high!, left.low!, null) >= 0)
+                    if (Compare(rightHigh!, leftLow!, null) >= 0)
                     {
-                        if (Compare(left.high!, left.high!, null) > 0) return new CqlInterval<T>(right.low, left.high, right.lowClosed, left.highClosed);
+                        if (Compare(leftHigh!, leftHigh!, null) > 0) return new CqlInterval<T>(right.low, left.high, right.lowClosed, left.highClosed);
                         else return right;
                     }
                     else return null;

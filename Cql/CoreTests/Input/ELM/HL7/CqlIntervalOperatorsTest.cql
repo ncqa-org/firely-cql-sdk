@@ -852,7 +852,7 @@ define "TimeOverlapsAfterFalse":
   ( Interval[@T20:00:00.000, @T21:59:59.999]overlaps Interval[@T10:00:00.000, @T19:59:59.999]) = false
 
 define "TestPointFromNull":
-  ( point from Interval[null as Integer, null as Integer]) = null as Integer
+  ( point from (null as Interval<Integer>)) = null as Integer
 
 define "TestPointFromInteger":
   ( point from Interval[1, 1]) = 1
@@ -1139,3 +1139,57 @@ define "InvalidIntegerInterval":
 
 define "InvalidIntegerIntervalA":
   Interval[5, 5 )
+
+define "NullBoundariesProperlyIncludesIntegerInterval":
+  ( Interval[null as Integer, null as Integer] properly includes Interval[1, 10] ) = true
+
+define "IntegerIntervalProperlyIncludedInMaxIntervalTrue":
+  ( Interval[1, 10] properly included in Interval[null, null] ) = true
+
+define "TestMaxIntervalEndsFalse":
+  ( Interval[1, 10] ends Interval[null, null] ) = false
+
+define "TestUnknownIntervalEndsNull":
+  ( Interval[1, 10] ends Interval(null, null) ) = null
+
+define "TestMaxIntervalExceptNull":
+  ( Interval[null as Integer, null as Integer] except Interval[null as Integer, null as Integer] ) = null
+
+define "TestIntegerInMaxIntervalTrue":
+  ( 5 in Interval[null, null] ) = true
+
+define "TestIntegerInUnknownIntervalNull":
+  ( 5 in Interval(null, null) ) = null
+
+define "TestMaxIntervalOverlapsTrue":
+  ( Interval[null, null] overlaps Interval[1, 10] ) = true
+
+define "TestUnknownIntervalOverlapsNull":
+  ( Interval(null, null) overlaps Interval[1, 10] ) = null
+
+define "TestMaxIntervalOverlapsBeforeTrue":
+  ( Interval[null, null] overlaps before Interval[1, 10] ) = true
+
+define "TestUnknownIntervalOverlapsBeforeNull":
+  ( Interval(null, null) overlaps before Interval[1, 10] ) = null
+
+define "TestMaxIntervalOverlapsAfterTrue":
+  ( Interval[null, null] overlaps after Interval[1, 10] ) = true
+
+define "TestUnknownIntervalOverlapsAfterNull":
+  ( Interval(null, null) overlaps after Interval[1, 10] ) = null
+
+define "TestPointFromUnknownIntervalNull":
+  ( point from Interval(null as Integer, null as Integer) ) = null as Integer
+
+define "TestMaxIntervalStartsFalse":
+  ( Interval[null, null] starts Interval[1, 10] ) = false
+
+define "TestUnknownIntervalStartsNull":
+  ( Interval(null, null) starts Interval[1, 10] ) = null
+
+define "TestUnionMaxInterval":
+  ( Interval[null, null] union Interval[1, 10] ) = Interval[null, null]
+
+define "TestUnionUnknownInterval":
+  ( Interval(null, null) union Interval[1, 10] ) = null
