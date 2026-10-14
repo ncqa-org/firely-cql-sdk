@@ -884,3 +884,9 @@ define "DateTimeAddTodayTrue":
 
 define "Issue34B":
   Today()= Today()
+
+define "YearsBetweenLeapYearDatesEquals2":
+  years between @2012-02-29 and @2014-02-28 = 2
+
+define "YearsBetweenLeapYearDateTimesEquals2":
+  years between @2012-02-29T12:34:56 and @2014-02-28T12:34:56 = 2

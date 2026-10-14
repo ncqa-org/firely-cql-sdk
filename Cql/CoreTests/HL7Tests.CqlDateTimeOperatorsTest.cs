@@ -4109,6 +4109,34 @@ namespace CoreTests
             Assert.AreEqual(true, result);
         }
 
+        /// <summaray>
+        ///define "YearsBetweenLeapYearDatesEquals2":
+        ///	( years between @2012-02-29 and @2014-02-28 ) = 2
+        /// </summary>
+        [TestCategory("CqlDateTimeOperatorsTest")]
+        [TestMethod]
+        public void YearsBetweenLeapYearDatesEquals2_Test()
+        {
+            var lambda = LambdasByTestName["CqlDateTimeOperatorsTest", "YearsBetweenLeapYearDatesEquals2"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+
+        /// <summaray>
+        ///define "YearsBetweenLeapYearDateTimesEquals2":
+        ///	( years between @2012-02-29T12:34:56 and @2014-02-28T12:34:56 ) = 2
+        /// </summary>
+        [TestCategory("CqlDateTimeOperatorsTest")]
+        [TestMethod]
+        public void YearsBetweenLeapYearDateTimesEquals2_Test()
+        {
+            var lambda = LambdasByTestName["CqlDateTimeOperatorsTest", "YearsBetweenLeapYearDateTimesEquals2"];
+            var function = (Func<CqlContext, bool?>)lambda.Compile();
+            bool? result = function(Context);
+            Assert.AreEqual(true, result);
+        }
+
     }
 }
 

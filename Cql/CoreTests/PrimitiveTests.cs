@@ -233,7 +233,7 @@ namespace CoreTests
 
             Assert.IsTrue(CqlDateTime.TryParse("2021-02-28", out cqlStartDate));
             boundariesBetween = new CqlDateTime(startDate).WholeCalendarPeriodsBetween(cqlStartDate, "year");
-            Assert.AreEqual(0, boundariesBetween); // 1 full year occurs on mar 1, not feb 28
+            Assert.AreEqual(1, boundariesBetween); // 1 full year occurs on feb 28, not march 1 per https://github.com/cqframework/cql-tests/pull/114
 
             Assert.IsTrue(CqlDateTime.TryParse("2021-03-01", out cqlStartDate));
             boundariesBetween = new CqlDateTime(startDate).WholeCalendarPeriodsBetween(cqlStartDate, "year");
