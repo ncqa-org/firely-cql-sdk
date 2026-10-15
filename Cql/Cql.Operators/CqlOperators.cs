@@ -172,6 +172,76 @@ namespace Hl7.Cql.Runtime
         public IEnumerable<T>? WhereOrNull<T>(IEnumerable<T>? source, Func<T, bool?> lambda) =>
             source == null ? null : source.Where(x => lambda(x) ?? false).ToList();
 
+        public bool? ExistsWhere<T>(IEnumerable<T>? source, Func<T, bool?> predicate)
+        {
+            if (source is null)
+                return false;
+
+            foreach (var item in source)
+            {
+                // Same order as ExistsInList(WhereOrNull(...)): the predicate sees every element (including nulls),
+                // and only a non-null match counts.
+                if (predicate(item) == true && item is not null)
+                    return true;
+            }
+
+            return false;
+        }
+
+        public IEnumerable<T>? WithRelated<T, R>(IEnumerable<T>? source,
+            Func<T, IEnumerable<R>?> related,
+            Func<T, R, bool?> suchThat) =>
+            source is null ? null : FilterRelated(source, related, suchThat, keepWhenMatched: true);
+
+        public IEnumerable<T>? WithoutRelated<T, R>(IEnumerable<T>? source,
+            Func<T, IEnumerable<R>?> related,
+            Func<T, R, bool?> suchThat) =>
+            source is null ? null : FilterRelated(source, related, suchThat, keepWhenMatched: false);
+
+        private static List<T> FilterRelated<T, R>(IEnumerable<T> source,
+            Func<T, IEnumerable<R>?> related,
+            Func<T, R, bool?> suchThat,
+            bool keepWhenMatched)
+        {
+            var result = source.TryGetNonEnumeratedCount(out var count) ? new List<T>(count) : new List<T>();
+            foreach (var outer in source)
+            {
+                // A null source row never has related rows: it is dropped by "with" and kept by "without".
+                var matched = outer is not null && HasRelated(outer, related(outer), suchThat);
+                if (matched == keepWhenMatched)
+                    result.Add(outer);
+            }
+            return result;
+
+            static bool HasRelated(T outer, IEnumerable<R>? candidates, Func<T, R, bool?> suchThat)
+            {
+                if (candidates is null)
+                    return false;
+                foreach (var candidate in candidates)
+                {
+                    if (suchThat(outer, candidate) == true)
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        public IEnumerable<R>? FlattenSelect<T, R>(IEnumerable<T?>? source, Func<T?, IEnumerable<R>?> selector)
+        {
+            if (source is null)
+                return null;
+
+            var result = source.TryGetNonEnumeratedCount(out var count) ? new List<R>(count) : new List<R>();
+            foreach (var item in source)
+            {
+                var inner = selector(item);
+                if (inner is not null)
+                    result.AddRange(inner);
+            }
+
+            return result;
+        }
+
         public TAccumulate? AggregateOrNull<TSource, TAccumulate>(IEnumerable<TSource?>? source, TAccumulate? seed, Func<TAccumulate?, TSource?, TAccumulate?> lambda) =>
             source == null ? default : source.Aggregate(seed, lambda);
 

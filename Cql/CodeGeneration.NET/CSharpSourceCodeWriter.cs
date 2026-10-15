@@ -666,7 +666,9 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             var visitedBody = Transform(overload.Body,
                 new RedundantCastsTransformer(),
+                new FuseListOperatorsVisitor(),
                 new SimplifyExpressionsVisitor(),
+                new ShortCircuitLogicalOperatorsVisitor(),
                 new RenameVariablesVisitor(vng),
                 new LocalVariableDeduper()
             );

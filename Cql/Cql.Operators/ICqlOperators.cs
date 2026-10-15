@@ -172,6 +172,28 @@ namespace Hl7.Cql.Operators
         bool? Equal(object? x, object? y);
         bool? Equivalent(object? x, object? y);
         bool? ExistsInList<T>(IEnumerable<T> list);
+
+        /// <summary>
+        /// Fused form of <c>ExistsInList(WhereOrNull(source, predicate))</c>: returns <see langword="true"/> as soon as
+        /// a non-null element satisfies <paramref name="predicate"/>, without materializing the filtered list.
+        /// Returns <see langword="false"/> when <paramref name="source"/> is <see langword="null"/> or nothing matches.
+        /// </summary>
+        bool? ExistsWhere<T>(IEnumerable<T>? source, Func<T, bool?> predicate);
+
+        /// <summary>
+        /// Implements a CQL <c>with</c> clause (semi-join): returns the non-null elements of <paramref name="source"/>
+        /// for which at least one element of <c>related(element)</c> satisfies <paramref name="suchThat"/>.
+        /// Each source element appears at most once, and evaluation of the related elements stops at the first match.
+        /// Returns <see langword="null"/> when <paramref name="source"/> is <see langword="null"/>.
+        /// </summary>
+        IEnumerable<T>? WithRelated<T, R>(IEnumerable<T>? source, Func<T, IEnumerable<R>?> related, Func<T, R, bool?> suchThat);
+
+        /// <summary>
+        /// Implements a CQL <c>without</c> clause (anti-join): returns the elements of <paramref name="source"/>
+        /// for which no element of <c>related(element)</c> satisfies <paramref name="suchThat"/>.
+        /// Null source elements are kept. Returns <see langword="null"/> when <paramref name="source"/> is <see langword="null"/>.
+        /// </summary>
+        IEnumerable<T>? WithoutRelated<T, R>(IEnumerable<T>? source, Func<T, IEnumerable<R>?> related, Func<T, R, bool?> suchThat);
         decimal? Exp(decimal? argument);
         IEnumerable<CqlInterval<CqlDate?>>? ExpandList(IEnumerable<CqlInterval<CqlDate?>?>? argument, CqlQuantity? per);
         IEnumerable<CqlInterval<CqlDateTime?>>? ExpandList(IEnumerable<CqlInterval<CqlDateTime?>?>? argument, CqlQuantity? per);
@@ -188,6 +210,13 @@ namespace Hl7.Cql.Operators
         T? FirstOfList<T>(IEnumerable<T> enumerable);
         IEnumerable<object>? FlattenLateBoundList(IEnumerable<object> argument);
         IEnumerable<T>? FlattenList<T>(IEnumerable<IEnumerable<T>> argument);
+
+        /// <summary>
+        /// Fused form of <c>FlattenList(SelectOrNull(source, selector))</c>: projects every element and concatenates the
+        /// non-null results into a single list, without building the intermediate list of lists.
+        /// Returns <see langword="null"/> when <paramref name="source"/> is <see langword="null"/>.
+        /// </summary>
+        IEnumerable<R>? FlattenSelect<T, R>(IEnumerable<T?>? source, Func<T?, IEnumerable<R>?> selector);
         int? Floor(decimal? argument);
         int? Floor(int? argument);
         long? Floor(long? argument);
