@@ -158,8 +158,8 @@ namespace Hl7.Cql.Primitives
                         if (secondDayInYear > 59)
                             return yearDiff;
 
-                        if (secondDayInYear == 59 && (yearDiff < 0 || secondDto.TimeOfDay >= firstDto.TimeOfDay))
-                            return yearDiff;
+/*                        if (secondDayInYear == 59 && (yearDiff < 0 || secondDto.TimeOfDay >= firstDto.TimeOfDay))
+                            return yearDiff;*/
 
                         return yearDiff - 1;
                     }
