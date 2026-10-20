@@ -1007,7 +1007,7 @@ namespace Hl7.Cql.Compiler
 
         protected Expression? IdentifierRef(IdentifierRef ire, ExpressionBuilderContext ctx)
         {
-            if (string.Equals("$this", ire.name) && ctx.ImpliedAlias != null)
+            if (string.Equals("$this", ire.name, StringComparison.Ordinal) && ctx.ImpliedAlias != null)
             {
                 var scopeExpression = ctx.GetScopeExpression(ctx.ImpliedAlias);
                 return scopeExpression;
@@ -2415,7 +2415,7 @@ namespace Hl7.Cql.Compiler
                 .Select(operand => TranslateExpression(operand, ctx))
                 .Select(op => op.Type)
                 .ToArray();
-            if (op.libraryName?.StartsWith("FHIRHelpers") ?? false)
+            if (op.libraryName?.StartsWith("FHIRHelpers", StringComparison.Ordinal) ?? false)
             {
                 // cql-to-elm does not handle FHIRHelpers conversion function refs appropriately; they are missing resultTypeSpecifiers
                 switch (op.name)

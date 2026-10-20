@@ -82,7 +82,10 @@ namespace Hl7.Cql.Comparers
         public int GetHashCode(object x) => GetHashCode(x as decimal?);
 
         public int GetPrecision(decimal value) => BitConverter.GetBytes(decimal.GetBits(value)[3])[2];
-        private decimal TruncateDigits(decimal value, int places)
+        /// <summary>The value this comparer actually compares: <paramref name="value"/> truncated to the CQL maximum scale.</summary>
+        internal static decimal Truncate(decimal value) => TruncateDigits(value, MaxDecimalDigits);
+
+        private static decimal TruncateDigits(decimal value, int places)
         {
             var integral = Math.Truncate(value);
             var fraction = value - integral;

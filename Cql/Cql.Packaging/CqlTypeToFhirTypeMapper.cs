@@ -290,7 +290,7 @@ namespace Hl7.Cql.Packaging
         {
             if (!string.IsNullOrWhiteSpace(name))
             {
-                if (name.StartsWith("{urn:hl7-org:elm-types:r1}"))
+                if (name.StartsWith("{urn:hl7-org:elm-types:r1}", StringComparison.Ordinal))
                 {
                     int prefixLength = "{urn:hl7-org:elm-types:r1}".Length;
                     var remainder = name.Substring(prefixLength);
@@ -299,7 +299,7 @@ namespace Hl7.Cql.Packaging
                     else
                         return null;
                 }
-                else if (name.StartsWith("{http://hl7.org/fhir}"))
+                else if (name.StartsWith("{http://hl7.org/fhir}", StringComparison.Ordinal))
                 {
                     int prefixLength = "{http://hl7.org/fhir}".Length;
                     var remainder = name.Substring(prefixLength);

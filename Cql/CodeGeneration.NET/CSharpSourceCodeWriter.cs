@@ -19,7 +19,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Hl7.Cql.CodeGeneration.NET
 {
@@ -209,7 +208,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                                         ContextLibraries.Add(dependentLibrary);
                                 }
 
-                                if (dependentLibrary.StartsWith("Cache"))
+                                if (dependentLibrary.StartsWith("Cache", StringComparison.Ordinal))
                                 {
                                     cacheLibraryName = dependentLibrary.Replace("-", "_").Replace(".", "_");
                                 }
@@ -326,9 +325,6 @@ namespace Hl7.Cql.CodeGeneration.NET
                         }
 
                         writeDependencies(dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel);
-                        writer.WriteLine();
-
-                        writeCachedValueNames(definitions, libraryName, writer, indentLevel);
                         indentLevel -= 1;
                     }
 
@@ -489,24 +485,6 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
         }
 
-        private void writeCachedValueNames(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel)
-        {
-            foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
-            {
-                foreach (var overload in kvp.Value)
-                {
-                    if (isDefinition(overload.Item2))
-                    {
-                        var methodName = VariableNameGenerator.NormalizeIdentifier(kvp.Key);
-                        var cachedValueName = DefinitionCacheKeyForMethod(methodName!);
-                        var returnType = ExpressionConverter.PrettyTypeName(overload.Item2.ReturnType);
-                        var privateMethodName = PrivateMethodNameFor(methodName!);
-                        writer.WriteLine(indentLevel, $"{cachedValueName} = new Lazy<{returnType}>(() => this.{privateMethodName}(context));");
-                    }
-                }
-            }
-        }
-
         private void writeDependencies(DirectedGraph dependencyGraph,
             Func<string?, string?> libraryNameToClassName,
             string libraryName, StreamWriter writer,
@@ -520,7 +498,7 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             foreach (var dependentLibrary in requiredLibraries!)
             {
-                if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache"))
+                if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache", StringComparison.Ordinal))
                 {
                     var typeName = libraryNameToClassName!(dependentLibrary);
                     var memberName = typeName;
@@ -531,14 +509,12 @@ namespace Hl7.Cql.CodeGeneration.NET
 
         private void writeCachedValues(DefinitionDictionary<LambdaExpression> definitions, string libraryName, StreamWriter writer, int indentLevel)
         {
+            // Each definition is evaluated at most once per instance (one patient context), on first access.
+            // A plain field plus an "evaluated" flag replaces Lazy<T>: instances are used by a single thread,
+            // so Lazy's locking, and the Lazy + closure + delegate allocated per definition in the constructor,
+            // are not needed. Definitions that are never used now cost nothing.
             writer.WriteLine(indentLevel, "#region Cached values");
             writer.WriteLine();
-            var accessModifier = AccessModifierString(DefinesAccessModifier);
-
-            if (libraryName.StartsWith("Cache"))
-            {
-                accessModifier = "public";
-            }
 
             foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
             {
@@ -549,7 +525,8 @@ namespace Hl7.Cql.CodeGeneration.NET
                         var methodName = VariableNameGenerator.NormalizeIdentifier(kvp.Key);
                         var cachedValueName = DefinitionCacheKeyForMethod(methodName!);
                         var returnType = ExpressionConverter.PrettyTypeName(overload.T.ReturnType);
-                        writer.WriteLine(indentLevel, $"{accessModifier} Lazy<{returnType}> {cachedValueName};");
+                        writer.WriteLine(indentLevel, $"private {returnType} {cachedValueName};");
+                        writer.WriteLine(indentLevel, $"private bool {cachedValueName}_evaluated;");
                     }
                 }
             }
@@ -621,7 +598,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 {
                     // library exists and it's not the "Cache" library
                     //if (ContextLibraries.Contains(dependentLibrary))
-                    if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache"))
+                    if (ContextLibraries.Contains(dependentLibrary) && !dependentLibrary.StartsWith("Cache", StringComparison.Ordinal))
                     {
                         var typeName = libraryNameToClassName(dependentLibrary);
                         var memberName = typeName;
@@ -667,11 +644,24 @@ namespace Hl7.Cql.CodeGeneration.NET
             var visitedBody = Transform(overload.Body,
                 new RedundantCastsTransformer(),
                 new FuseListOperatorsVisitor(),
+                new PlainBooleanLogicVisitor(),
                 new SimplifyExpressionsVisitor(),
                 new ShortCircuitLogicalOperatorsVisitor(),
+                new InlineTailLocalFunctionVisitor(),
                 new RenameVariablesVisitor(vng),
                 new LocalVariableDeduper()
             );
+
+            // One dedupe pass can expose more duplicates: e.g. "End(a_)" and "End(g_)" only become identical after
+            // g_ has been replaced by a_. Repeat until no more assignments disappear.
+            for (var pass = 0; pass < 5; pass++)
+            {
+                var before = CountAssignments(visitedBody);
+                var deduped = new LocalVariableDeduper().Visit(visitedBody);
+                if (CountAssignments(deduped) >= before)
+                    break;
+                visitedBody = deduped;
+            }
 
             var expressionConverter = new ExpressionConverter(libraryName, ContextLibraries);
 
@@ -690,21 +680,12 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                     if (!string.IsNullOrEmpty(cacheLibraryName))
                     {
-                        //var cacheFunction = CacheLibrary;
                         // convert from
-                        // var a_ = Cache_2025_0_0.Has_hospice_during(); 
+                        // var a_ = Cache_2025_0_0.Has_hospice_during();
                         // to
-                        // var a_ = cache.__Has_hospice_during?.Value;
-                        var cacheIndex = func.IndexOf(cacheLibraryName);
-                        if (cacheIndex > 0)
-                        {
-                            func = func.Replace($"{cacheLibraryName}.", "cache.__");
-
-                            string pattern = @"(cache\.\w+)\(\)";
-                            string replacement = "$1?.Value";
-                            var output = Regex.Replace(func, pattern, replacement);
-                            func = output;
-                        }
+                        // var a_ = cache.Has_hospice_during();
+                        // (the shared Cache instance caches the value itself)
+                        func = func.Replace($"{cacheLibraryName}.", "cache.");
                     }
                     writer.Write(func);
                     writer.WriteLine();
@@ -731,20 +712,33 @@ namespace Hl7.Cql.CodeGeneration.NET
                 if (useLazy)
                 {
                     var cachedValueName = DefinitionCacheKeyForMethod(methodName!);
-                    var lazyType = typeof(Lazy<>).MakeGenericType(visitedBody.Type);
-                    var valueFunc =
-                        Expression.Lambda(
-                            Expression.MakeMemberAccess(
-                                Expression.Parameter(lazyType, cachedValueName),
-                                lazyType.GetMember("Value").Single()));
+                    var privateMethodName = PrivateMethodNameFor(methodName!);
+                    var returnType = ExpressionConverter.PrettyTypeName(visitedBody.Type);
 
-                    // add null handler because, in some rare cases the order of the Lazy matters and a null exception is thrown in the constructor
-                    // but having it as lazy?.Value handles this without degrading performance or affecting result of execution 
-                    var valueFunction =
-                        expressionConverter.ConvertTopLevelFunctionDefinition(indentLevel, valueFunc, methodName!, "public", false);
-
-                    valueFunction = valueFunction.Replace(".Value", "?.Value");
-                    writer.Write(valueFunction);
+                    // [DebuggerStepThrough] lets "Step Into" go straight to the definition body (X_Value)
+                    // instead of stopping in this caching accessor.
+                    writer.WriteLine(indentLevel, "[System.Diagnostics.DebuggerStepThrough]");
+                    writer.WriteLine(indentLevel, $"public {returnType} {methodName}()");
+                    writer.WriteLine(indentLevel, "{");
+                    writer.WriteLine(indentLevel + 1, $"if (!{cachedValueName}_evaluated)");
+                    writer.WriteLine(indentLevel + 1, "{");
+                    writer.WriteLine(indentLevel + 2, $"{cachedValueName} = this.{privateMethodName}(context);");
+                    writer.WriteLine(indentLevel + 2, $"{cachedValueName}_evaluated = true;");
+                    writer.WriteLine(indentLevel + 1, "}");
+                    writer.WriteLine();
+                    writer.WriteLine(indentLevel + 1, $"return {cachedValueName};");
+                    writer.WriteLine(indentLevel, "}");
+                }
+                else if (TryGetConstantVocabulary(overload.Body, out var vocabulary))
+                {
+                    // Value sets, codes and code lists are immutable constants: create them once instead of
+                    // allocating a new instance on every call.
+                    var cachedValueName = DefinitionCacheKeyForMethod(methodName!);
+                    var returnType = ExpressionConverter.PrettyTypeName(overload.ReturnType);
+                    var initializer = expressionConverter.ConvertExpression(indentLevel + 1, vocabulary, leadingIndent: false);
+                    writer.WriteLine(indentLevel, $"public {returnType} {methodName}(CqlContext context) => {cachedValueName};");
+                    writer.WriteLine();
+                    writer.WriteLine(indentLevel, $"private static readonly {returnType} {cachedValueName} = {initializer};");
                 }
                 else
                 {
@@ -757,6 +751,48 @@ namespace Hl7.Cql.CodeGeneration.NET
                 WriteTags(writer, indentLevel, tags);
                 writer.Write(expressionConverter.ConvertTopLevelFunctionDefinition(indentLevel, overload, methodName!, "public", !useLazy));
             }
+        }
+
+        private static readonly HashSet<Type> VocabularyTypes = new()
+        {
+            typeof(CqlValueSet), typeof(CqlCode), typeof(CqlCodeSystem), typeof(CqlConcept),
+        };
+
+        /// <summary>
+        /// Recognizes definition bodies that only construct vocabulary from constants
+        /// (<c>new CqlValueSet("...", null)</c>, <c>new CqlCode(...)</c>, arrays of those), which can be hoisted to a static field.
+        /// The simplified body is a block that assigns the array to a local before returning it, so look through that.
+        /// </summary>
+        private static bool TryGetConstantVocabulary(Expression body, out Expression vocabulary)
+        {
+            vocabulary = body;
+            if (body is BlockExpression { Expressions.Count: 2 } block
+                && block.Expressions[0] is BinaryExpression { NodeType: ExpressionType.Assign, Left: ParameterExpression assigned } assign
+                && block.Expressions[1] == assigned)
+            {
+                vocabulary = assign.Right;
+            }
+
+            return IsConstantVocabulary(vocabulary);
+
+            static bool IsConstantVocabulary(Expression e) => e switch
+            {
+                NewExpression @new => VocabularyTypes.Contains(@new.Type) && @new.Arguments.All(IsConstantArgument),
+                NewArrayExpression { NodeType: ExpressionType.NewArrayInit } array =>
+                    VocabularyTypes.Contains(array.Type.GetElementType()!) && array.Expressions.All(IsConstantVocabulary),
+                _ => false,
+            };
+
+            static bool IsConstantArgument(Expression e) => e switch
+            {
+                ConstantExpression => true,
+                UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.TypeAs } u => IsConstantArgument(u.Operand),
+                NewArrayExpression { NodeType: ExpressionType.NewArrayInit } array => array.Expressions.All(IsConstantVocabularyOrConstant),
+                _ => IsConstantVocabularyOrConstant(e),
+            };
+
+            static bool IsConstantVocabularyOrConstant(Expression e) =>
+                e is ConstantExpression || IsConstantVocabulary(e);
         }
 
         private static void WriteTags(TextWriter writer, int indentLevel, ILookup<string, string>? tags)
@@ -806,6 +842,25 @@ namespace Hl7.Cql.CodeGeneration.NET
             indentLevel--;
             writer.WriteLine(indentLevel, $"}}");
             return indentLevel;
+        }
+
+        private static int CountAssignments(Expression expression)
+        {
+            var counter = new AssignmentCounter();
+            counter.Visit(expression);
+            return counter.Count;
+        }
+
+        private sealed class AssignmentCounter : ExpressionVisitor
+        {
+            public int Count { get; private set; }
+
+            protected override Expression VisitBinary(BinaryExpression node)
+            {
+                if (node.NodeType == ExpressionType.Assign)
+                    Count++;
+                return base.VisitBinary(node);
+            }
         }
 
         private static Expression Transform(Expression body, params ExpressionVisitor[] visitors)

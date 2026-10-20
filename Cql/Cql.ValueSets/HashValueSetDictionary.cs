@@ -124,7 +124,14 @@ namespace Hl7.Cql.ValueSets
 
         private class CqlCodeHasher : IEqualityComparer<CqlCode>
         {
-            public bool Equals(CqlCode? x, CqlCode? y) => true;
+            // Must agree with GetHashCode: two codes are the same entry when both code and system match.
+            // (This used to return true unconditionally, so distinct codes whose hashes collided were
+            // silently dropped from the value set's code list, and from value sets that include it.)
+            public bool Equals(CqlCode? x, CqlCode? y) =>
+                ReferenceEquals(x, y)
+                || (x is not null && y is not null
+                    && string.Equals(x.code, y.code, StringComparison.Ordinal)
+                    && string.Equals(x.system, y.system, StringComparison.Ordinal));
 
             // we're using low ASCII values that are invalid in real codes
             public int GetHashCode(CqlCode obj) =>

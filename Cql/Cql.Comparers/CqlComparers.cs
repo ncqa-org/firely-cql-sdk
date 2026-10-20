@@ -77,6 +77,7 @@ namespace Hl7.Cql.Comparers
             }
 
             Comparers.AddOrUpdate(type, comparer, (t, existing) => comparer);
+            _resolvedComparers.Clear();
             return this;
 
         }
@@ -109,6 +110,7 @@ namespace Hl7.Cql.Comparers
                 throw new ArgumentException($"Type {genericTypeDefinition} is not a generic type definition.");
 
             ComparerFactories.AddOrUpdate(genericTypeDefinition, comparerFactory, (t, existing) => comparerFactory);
+            _resolvedComparers.Clear();
             return this;
         }
 
@@ -126,6 +128,7 @@ namespace Hl7.Cql.Comparers
             }
             Comparers.TryRemove(type, out var comparer);
             ComparerFactories.TryRemove(type, out var factory);
+            _resolvedComparers.Clear();
             return this;
         }
 
@@ -150,12 +153,31 @@ namespace Hl7.Cql.Comparers
                 return null;
 
             var xType = x.GetType();
-            ICqlComparer? comparer = null;
-            if (Comparers.TryGetValue(xType, out ICqlComparer? c))
+            if (!Comparers.TryGetValue(xType, out ICqlComparer? comparer)
+                && !_resolvedComparers.TryGetValue(xType, out comparer))
             {
-                comparer = c;
+                comparer = ResolveComparer(x, xType);
+                // Cache the resolution for types that are not registered directly (tuples, list types),
+                // so later comparisons skip the generic-type and interface checks. Cleared on (un)registration.
+                if (comparer != null)
+                    _resolvedComparers.TryAdd(xType, comparer);
             }
-            else if (xType.IsGenericType)
+            if (comparer != null)
+            {
+                var result = comparer.Compare(x, y, precision);
+                return result;
+            }
+            else
+                throw new ArgumentException($"Cannot compare type {xType.Name}");
+        }
+
+        /// <inheritdoc />
+        private readonly ConcurrentDictionary<Type, ICqlComparer> _resolvedComparers = new();
+
+        private ICqlComparer? ResolveComparer(object x, Type xType)
+        {
+            ICqlComparer? comparer = null;
+            if (xType.IsGenericType)
             {
                 var gtd = xType.GetGenericTypeDefinition();
                 if (ComparerFactories.TryGetValue(gtd, out var factory))
@@ -177,16 +199,9 @@ namespace Hl7.Cql.Comparers
             {
                 comparer = listComarper;
             }
-            if (comparer != null)
-            {
-                var result = comparer.Compare(x, y, precision);
-                return result;
-            }
-            else
-                throw new ArgumentException($"Cannot compare type {xType.Name}");
+            return comparer;
         }
 
-        /// <inheritdoc />
         public bool Equivalent(object? x, object? y, string? precision)
         {
             if (x == null)
@@ -243,7 +258,8 @@ namespace Hl7.Cql.Comparers
                 var i = 1;
                 foreach (var _x in enumerable)
                 {
-                    hash ^= i ^ GetHashCode(_x);
+                    // Include the position so lists with the same elements in a different order hash differently.
+                    hash ^= i++ ^ GetHashCode(_x);
                 }
                 return hash;
             }

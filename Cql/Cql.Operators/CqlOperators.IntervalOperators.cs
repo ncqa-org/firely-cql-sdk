@@ -18,6 +18,16 @@ namespace Hl7.Cql.Runtime
 {
     internal partial class CqlOperators
     {
+        // Method-group delegates for Predecessor/Successor, created once per instance instead of on every
+        // ToClosed/Meets call (Func<CqlDate, CqlDate> was the largest single allocation in a measure run).
+        private Func<CqlDate?, CqlDate?>? _predecessorDate, _successorDate;
+        private Func<CqlDateTime?, CqlDateTime?>? _predecessorDateTime, _successorDateTime;
+        private Func<decimal?, decimal?>? _predecessorDecimal, _successorDecimal;
+        private Func<int?, int?>? _predecessorInt, _successorInt;
+        private Func<long?, long?>? _predecessorLong, _successorLong;
+        private Func<CqlQuantity?, CqlQuantity?>? _predecessorQuantity, _successorQuantity;
+        private Func<CqlTime?, CqlTime?>? _predecessorTime, _successorTime;
+
         #region Interval
 
         public CqlInterval<int?>? Interval(int? low, int? high, bool? lowClosed, bool? highClosed)
@@ -1331,7 +1341,7 @@ namespace Hl7.Cql.Runtime
             if ((left.high == null && right.high == null) || (left.low == null && right.low == null))
                 return null;
 
-            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorInt ??= Predecessor));
         }
         public bool? Meets(CqlInterval<long?>? left, CqlInterval<long?>? right, string? precision)
         {
@@ -1340,7 +1350,7 @@ namespace Hl7.Cql.Runtime
             if ((left.high == null && right.high == null) || (left.low == null && right.low == null))
                 return null;
 
-            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorLong ??= Predecessor));
         }
         public bool? Meets(CqlInterval<decimal?>? left, CqlInterval<decimal?>? right, string? precision)
         {
@@ -1349,7 +1359,7 @@ namespace Hl7.Cql.Runtime
             if ((left.high == null && right.high == null) || (left.low == null && right.low == null))
                 return null;
 
-            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorDecimal ??= Predecessor));
         }
 
         public bool? Meets(CqlInterval<CqlQuantity?>? left, CqlInterval<CqlQuantity?>? right, string? precision)
@@ -1359,7 +1369,7 @@ namespace Hl7.Cql.Runtime
             if ((left.high == null && right.high == null) || (left.low == null && right.low == null))
                 return null;
 
-            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorQuantity ??= Predecessor));
         }
 
         public bool? Meets(CqlInterval<CqlDate?>? left, CqlInterval<CqlDate?>? right, string? precision)
@@ -1369,7 +1379,7 @@ namespace Hl7.Cql.Runtime
             if ((left.high == null && right.high == null) || (left.low == null && right.low == null))
                 return null;
 
-            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorDate ??= Predecessor));
         }
         public bool? Meets(CqlInterval<CqlDateTime?>? left, CqlInterval<CqlDateTime?>? right, string? precision)
         {
@@ -1378,7 +1388,7 @@ namespace Hl7.Cql.Runtime
             if ((left.high == null && right.high == null) || (left.low == null && right.low == null))
                 return null;
 
-            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorDateTime ??= Predecessor));
         }
         public bool? Meets(CqlInterval<CqlTime?>? left, CqlInterval<CqlTime?>? right, string? precision)
         {
@@ -1387,7 +1397,7 @@ namespace Hl7.Cql.Runtime
             if ((left.high == null && right.high == null) || (left.low == null && right.low == null))
                 return null;
 
-            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorTime ??= Predecessor));
         }
         private bool? MeetsHelper<T>(CqlInterval<T> left, CqlInterval<T> right, string? precision, Func<T, T> predecessor)
         {
@@ -1422,7 +1432,7 @@ namespace Hl7.Cql.Runtime
             if (left.high == null && right.high == null)
                 return null;
 
-            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, Predecessor);
+            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, (_predecessorInt ??= Predecessor));
         }
 
         public bool? MeetsAfter(CqlInterval<long?>? left, CqlInterval<long?> right, string? precision)
@@ -1432,7 +1442,7 @@ namespace Hl7.Cql.Runtime
             if (left.high == null && right.high == null)
                 return null;
 
-            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, Predecessor);
+            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, (_predecessorLong ??= Predecessor));
         }
 
         public bool? MeetsAfter(CqlInterval<decimal?>? left, CqlInterval<decimal?> right, string? precision)
@@ -1442,7 +1452,7 @@ namespace Hl7.Cql.Runtime
             if (left.high == null && right.high == null)
                 return null;
 
-            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, Predecessor);
+            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, (_predecessorDecimal ??= Predecessor));
         }
 
 
@@ -1453,7 +1463,7 @@ namespace Hl7.Cql.Runtime
             if (left.high == null && right.high == null)
                 return null;
 
-            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, Predecessor);
+            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, (_predecessorQuantity ??= Predecessor));
         }
 
         public bool? MeetsAfter(CqlInterval<CqlDate?>? left, CqlInterval<CqlDate?> right, string? precision)
@@ -1461,7 +1471,7 @@ namespace Hl7.Cql.Runtime
             if (left == null || right == null) return null;
             if (left.high == null && right.high == null) return null;
 
-            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, Predecessor);
+            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, (_predecessorDate ??= Predecessor));
         }
 
         public bool? MeetsAfter(CqlInterval<CqlDateTime?>? left, CqlInterval<CqlDateTime?> right, string? precision)
@@ -1469,7 +1479,7 @@ namespace Hl7.Cql.Runtime
             if (left == null || right == null) return null;
             if (left.high == null && right.high == null) return null;
 
-            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, Predecessor);
+            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, (_predecessorDateTime ??= Predecessor));
         }
         public bool? MeetsAfter(CqlInterval<CqlTime?>? left, CqlInterval<CqlTime?> right, string? precision)
         {
@@ -1478,7 +1488,7 @@ namespace Hl7.Cql.Runtime
             if (left.high == null && right.high == null)
                 return null;
 
-            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, Predecessor);
+            return MeetsAfterHelper(ToClosed(left), ToClosed(right), precision, (_predecessorTime ??= Predecessor));
         }
 
         private bool? MeetsAfterHelper<T>(CqlInterval<T>? left, CqlInterval<T>? right, string? precision, Func<T, T> predecessor)
@@ -1518,7 +1528,7 @@ namespace Hl7.Cql.Runtime
             if (left.low == null && right.low == null)
                 return null;
 
-            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorInt ??= Predecessor));
         }
         public bool? MeetsBefore(CqlInterval<long?> left, CqlInterval<long?> right, string? precision)
         {
@@ -1527,7 +1537,7 @@ namespace Hl7.Cql.Runtime
             if (left.low == null && right.low == null)
                 return null;
 
-            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorLong ??= Predecessor));
         }
         public bool? MeetsBefore(CqlInterval<decimal?> left, CqlInterval<decimal?> right, string? precision)
         {
@@ -1536,7 +1546,7 @@ namespace Hl7.Cql.Runtime
             if (left.low == null && right.low == null)
                 return null;
 
-            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorDecimal ??= Predecessor));
         }
         public bool? MeetsBefore(CqlInterval<CqlQuantity?> left, CqlInterval<CqlQuantity?> right, string? precision)
         {
@@ -1545,7 +1555,7 @@ namespace Hl7.Cql.Runtime
             if (left.low == null && right.low == null)
                 return null;
 
-            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorQuantity ??= Predecessor));
         }
         public bool? MeetsBefore(CqlInterval<CqlDate?> left, CqlInterval<CqlDate?> right, string? precision)
         {
@@ -1554,7 +1564,7 @@ namespace Hl7.Cql.Runtime
             if (left.low == null && right.low == null)
                 return null;
 
-            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorDate ??= Predecessor));
         }
         public bool? MeetsBefore(CqlInterval<CqlDateTime?> left, CqlInterval<CqlDateTime?> right, string? precision)
         {
@@ -1563,7 +1573,7 @@ namespace Hl7.Cql.Runtime
             if (left.low == null && right.low == null)
                 return null;
 
-            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorDateTime ??= Predecessor));
         }
         public bool? MeetsBefore(CqlInterval<CqlTime?> left, CqlInterval<CqlTime?> right, string? precision)
         {
@@ -1572,7 +1582,7 @@ namespace Hl7.Cql.Runtime
             if (left.low == null && right.low == null)
                 return null;
 
-            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, Predecessor);
+            return MeetsBeforeHelper(ToClosed(left)!, ToClosed(right)!, precision, (_predecessorTime ??= Predecessor));
         }
 
         private bool? MeetsBeforeIgnoringClosed<T>(CqlInterval<T> left, CqlInterval<T> right, string? precision, Func<T, T> predecessor)
@@ -2332,13 +2342,13 @@ namespace Hl7.Cql.Runtime
 
         #endregion
 
-        public CqlInterval<int?>? ToClosed(CqlInterval<int?>? interval) => ToClosedHelper(interval, Predecessor, Successor);
-        public CqlInterval<long?>? ToClosed(CqlInterval<long?>? interval) => ToClosedHelper(interval, Predecessor, Successor);
-        public CqlInterval<decimal?>? ToClosed(CqlInterval<decimal?>? interval) => ToClosedHelper(interval, Predecessor, Successor);
-        public CqlInterval<CqlQuantity?>? ToClosed(CqlInterval<CqlQuantity?>? interval) => ToClosedHelper(interval, Predecessor, Successor);
-        public CqlInterval<CqlDate?>? ToClosed(CqlInterval<CqlDate?>? interval) => ToClosedHelper(interval, Predecessor, Successor);
-        public CqlInterval<CqlDateTime?>? ToClosed(CqlInterval<CqlDateTime?>? interval) => ToClosedHelper(interval, Predecessor, Successor);
-        public CqlInterval<CqlTime?>? ToClosed(CqlInterval<CqlTime?>? interval) => ToClosedHelper(interval, Predecessor, Successor);
+        public CqlInterval<int?>? ToClosed(CqlInterval<int?>? interval) => ToClosedHelper(interval, (_predecessorInt ??= Predecessor), (_successorInt ??= Successor));
+        public CqlInterval<long?>? ToClosed(CqlInterval<long?>? interval) => ToClosedHelper(interval, (_predecessorLong ??= Predecessor), (_successorLong ??= Successor));
+        public CqlInterval<decimal?>? ToClosed(CqlInterval<decimal?>? interval) => ToClosedHelper(interval, (_predecessorDecimal ??= Predecessor), (_successorDecimal ??= Successor));
+        public CqlInterval<CqlQuantity?>? ToClosed(CqlInterval<CqlQuantity?>? interval) => ToClosedHelper(interval, (_predecessorQuantity ??= Predecessor), (_successorQuantity ??= Successor));
+        public CqlInterval<CqlDate?>? ToClosed(CqlInterval<CqlDate?>? interval) => ToClosedHelper(interval, (_predecessorDate ??= Predecessor), (_successorDate ??= Successor));
+        public CqlInterval<CqlDateTime?>? ToClosed(CqlInterval<CqlDateTime?>? interval) => ToClosedHelper(interval, (_predecessorDateTime ??= Predecessor), (_successorDateTime ??= Successor));
+        public CqlInterval<CqlTime?>? ToClosed(CqlInterval<CqlTime?>? interval) => ToClosedHelper(interval, (_predecessorTime ??= Predecessor), (_successorTime ??= Successor));
 
         protected CqlInterval<T>? ToClosedHelper<T>(CqlInterval<T>? interval, Func<T, T> predecessor, Func<T, T> successor)
         {

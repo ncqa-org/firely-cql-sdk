@@ -21,6 +21,9 @@ namespace Hl7.Cql.Comparers
     {
         private readonly StringComparer _comparer;
 
+        /// <summary>The <see cref="StringComparer"/> applied to normalized strings.</summary>
+        internal StringComparer InnerComparer => _comparer;
+
         /// <summary>
         /// Creates an instance that uses the indicated <see cref="StringComparer"/> on normalized string.
         /// </summary>

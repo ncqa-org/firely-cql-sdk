@@ -1,123 +1,46 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Data.SqlTypes;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Hl7.Cql.Fhir
 {
-    internal class LRUValue<T>
-    {
-        public T Value;
-        public LRUValue<T>? NextLRU;
-        public LRUValue<T>? PrevLRU;
-        public string Key;
-
-        public LRUValue(string key, T value)
-        {
-            Value = value;
-            Key = key;
-        }
-    }
-
+    /// <summary>
+    /// A bounded, thread-safe cache of parsed values keyed by their source string.
+    /// </summary>
+    /// <remarks>
+    /// This cache is shared by every <c>CqlContext</c> in the process (it backs the static FHIR type converter), so it is
+    /// read concurrently when patients are evaluated in parallel. The previous implementation took a lock on every read
+    /// and kept a linked list for recency that reads never updated. Lookups are now lock-free; when the cache reaches its
+    /// capacity it is cleared and refilled, which keeps memory bounded without per-read bookkeeping. Cached values are
+    /// only ever reused, never mutated, so eviction policy does not affect results.
+    /// </remarks>
     internal class LRUCache<T>
     {
-        private Dictionary<string, LRUValue<T>> Cache;
-        private LRUValue<T>? Head;
-        private LRUValue<T>? Tail;
-        private int Count;
-        private int Capacity;
+        private readonly ConcurrentDictionary<string, T> _cache;
+        private readonly int _capacity;
 
         public LRUCache(int capacity)
         {
-            Cache = new Dictionary<string, LRUValue<T>>();
-            Count = 0;
-            Capacity = capacity;
-        }
-
-        public void Touch(LRUValue<T> val)
-        {
-            if(val.PrevLRU != null)
-            {
-                val.PrevLRU.NextLRU = val.NextLRU;
-                if(val == Tail)
-                {
-                    Tail = val.PrevLRU;
-                }
-            }
-            if(val.NextLRU != null)
-            {
-                val.NextLRU.PrevLRU = val.PrevLRU;
-            }
-
-            if(Head != null)
-            {
-                Head.PrevLRU = val;
-                val.NextLRU = Head;
-                Head = val;
-                val.PrevLRU = null;
-            }
+            _capacity = capacity > 0 ? capacity : 1;
+            _cache = new ConcurrentDictionary<string, T>(System.StringComparer.Ordinal);
         }
 
         public void Insert(string key, T item)
         {
-            if (item == null) return;
+            if (key is null || item == null)
+                return;
 
+            if (_cache.Count >= _capacity)
+                _cache.Clear();
 
-            lock (Cache)
-            {
-                if (Cache.ContainsKey(key))
-                {
-                    Touch(Cache[key]);
-                    return;
-                }
-
-
-                if (Head == null)
-                {
-                    Head = new LRUValue<T>(key, item);
-                    Tail = Head;
-                    Cache[key] = Head;
-                    Count++;
-                    return;
-                }
-
-                // NOTE(agw): theoretically Tail should never be null here if Count > 0
-                if (Count > Capacity && Tail != null)
-                {
-                    Cache.Remove(Tail.Key, out var _);
-
-                    Tail.Value = item;
-                    Tail.Key = key;
-
-                    Cache[key] = Tail;
-                    Touch(Tail);
-                }
-                else
-                {
-                    var newValue = new LRUValue<T>(key, item);
-                    Head.PrevLRU = newValue;
-                    newValue.NextLRU = Head;
-                    Head = newValue;
-
-                    Cache[key] = newValue;
-                    Count++;
-                }
-            }
+            _cache.TryAdd(key, item);
         }
 
         public bool TryGetValue(string key, [MaybeNullWhen(false)] out T value)
         {
-            lock (Cache)
+            if (key is not null && _cache.TryGetValue(key, out var found))
             {
-                if (key != null && Cache.TryGetValue(key, out var lruValue))
-                {
-                    value = lruValue.Value;
-                    return true;
-                }
+                value = found;
+                return true;
             }
 
             value = default;

@@ -148,7 +148,7 @@ namespace Hl7.Cql.Compiler
             identifier = identifier.Replace("&", "and");
 
 
-            if (identifier.StartsWith("$"))
+            if (identifier.StartsWith('$'))
                 identifier = identifier.Substring(1);
             var keyword = SyntaxFacts.GetKeywordKind(identifier);
             if (keyword != SyntaxKind.None)

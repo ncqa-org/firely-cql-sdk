@@ -35,7 +35,7 @@ namespace Hl7.Cql.Packaging.ResourceWriters
                         {
                             var bytes = binary.Data;
                             DirectoryInfo? sourceDir = null;
-                            if (binary.Id.StartsWith("Tuple_"))
+                            if (binary.Id.StartsWith("Tuple_", StringComparison.Ordinal))
                             {
                                 sourceDir = new(Path.Combine(OutDirectory.FullName, "Tuples"));
                             }

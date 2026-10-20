@@ -45,9 +45,16 @@ namespace Hl7.Cql.Fhir
             {
                 if (candidate is ICoded codedCandidate)
                 {
+                    // Return each matching resource once, even when several of its codings match.
                     var codings = codedCandidate.ToCodings();
                     foreach (var coding in codings)
-                        if (filter(coding)) yield return candidate;
+                    {
+                        if (filter(coding))
+                        {
+                            yield return candidate;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -58,9 +65,16 @@ namespace Hl7.Cql.Fhir
 
             foreach (var candidate in candidates)
             {
+                // Return each matching resource once, even when several of its codings match.
                 var codings = getCodes.Invoke(candidate);
                 foreach (var coding in codings)
-                    if (filter(coding)) yield return candidate;
+                {
+                    if (filter(coding))
+                    {
+                        yield return candidate;
+                        break;
+                    }
+                }
             }
         }
 

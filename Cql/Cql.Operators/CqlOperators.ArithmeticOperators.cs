@@ -83,8 +83,8 @@ namespace Hl7.Cql.Runtime
             {
                 string? leftUnit = left.unit;
                 string? rightUnit = right.unit;
-                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s") ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
-                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s") ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
+                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s", StringComparison.CurrentCulture) ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
+                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s", StringComparison.CurrentCulture) ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
 
                 if (normalizedLeftUnit != normalizedRightUnit)
                     throw new NotSupportedException("Mixed unit arithmetic is not supported.");
@@ -462,8 +462,8 @@ namespace Hl7.Cql.Runtime
             {
                 string? leftUnit = left.unit;
                 string? rightUnit = right.unit;
-                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s") ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
-                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s") ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
+                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s", StringComparison.CurrentCulture) ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
+                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s", StringComparison.CurrentCulture) ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
 
                 if (normalizedLeftUnit != normalizedRightUnit)
                     throw new NotSupportedException("Mixed unit arithmetic is not supported.");
@@ -550,7 +550,7 @@ namespace Hl7.Cql.Runtime
             else
             {
                 string val = argument.Value.ToString(CultureInfo.InvariantCulture);
-                int ret = val.Length - (val.IndexOf(".") + 1);
+                int ret = val.Length - (val.IndexOf(".", StringComparison.CurrentCulture) + 1);
                 if (ret <= 0) return 0;
                 else return ret;
             }
@@ -727,8 +727,8 @@ namespace Hl7.Cql.Runtime
             {
                 string? leftUnit = left.unit;
                 string? rightUnit = right.unit;
-                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s") ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
-                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s") ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
+                string normalizedLeftUnit = !string.IsNullOrEmpty(leftUnit) && leftUnit.EndsWith("s", StringComparison.CurrentCulture) ? leftUnit.Substring(0, leftUnit.Length - 1) : leftUnit ?? string.Empty;
+                string normalizedRightUnit = !string.IsNullOrEmpty(rightUnit) && rightUnit.EndsWith("s", StringComparison.CurrentCulture) ? rightUnit.Substring(0, rightUnit.Length - 1) : rightUnit ?? string.Empty;
 
                 if (normalizedLeftUnit != normalizedRightUnit)
                     throw new NotSupportedException("Mixed unit arithmetic is not supported.");

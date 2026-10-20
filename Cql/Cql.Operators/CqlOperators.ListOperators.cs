@@ -24,7 +24,7 @@ namespace Hl7.Cql.Runtime
         {
             if (list == null) return false;
             if (item == null) return null;
-            foreach (var i in list.Cast<object>())
+            foreach (var i in list)
                 if (Compare(item, i, null) == 0)
                     return true;
             return false;
@@ -37,23 +37,88 @@ namespace Hl7.Cql.Runtime
         {
             if (source == null)
                 return null;
+
+            var items = source as ICollection<T> ?? source.ToList();
+            var hasher = DistinctHasher;
             var result = new List<object?>();
             var nullAdded = false;
-            foreach (object? item in source)
+
+            // Fast path: when every element can be hashed consistently with CQL equality, only elements
+            // with the same hash are compared. Same comparisons, same order, so the result is identical.
+            int[]? hashes = hasher is null ? null : new int[items.Count];
+            if (hashes is not null)
             {
-                if (item == null)
+                var index = 0;
+                foreach (object? item in items)
                 {
-                    if (!nullAdded)
+                    if (item is not null && !hasher!.TryGetHash(item, out hashes[index]))
                     {
-                        result.Add(null);
-                        nullAdded = true;
+                        hashes = null;
+                        break;
                     }
-                }
-                else if (!Enumerable.Contains(result!, item!, EqualityComparer!))
-                {
-                    result.Add(item!);
+                    index++;
                 }
             }
+
+            if (hashes is not null)
+            {
+                var buckets = new Dictionary<int, List<int>>();
+                var index = 0;
+                foreach (object? item in items)
+                {
+                    var hash = hashes[index++];
+                    if (item == null)
+                    {
+                        if (!nullAdded)
+                        {
+                            result.Add(null);
+                            nullAdded = true;
+                        }
+                        continue;
+                    }
+
+                    if (!buckets.TryGetValue(hash, out var bucket))
+                    {
+                        buckets.Add(hash, new List<int> { result.Count });
+                        result.Add(item);
+                        continue;
+                    }
+
+                    var found = false;
+                    foreach (var existing in bucket)
+                    {
+                        if (EqualityComparer.Equals(result[existing]!, item))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        bucket.Add(result.Count);
+                        result.Add(item);
+                    }
+                }
+            }
+            else
+            {
+                foreach (object? item in items)
+                {
+                    if (item == null)
+                    {
+                        if (!nullAdded)
+                        {
+                            result.Add(null);
+                            nullAdded = true;
+                        }
+                    }
+                    else if (!Enumerable.Contains(result!, item!, EqualityComparer!))
+                    {
+                        result.Add(item!);
+                    }
+                }
+            }
+
             var asT = result
                 .Cast<T>()
                 .ToArray();
@@ -1003,7 +1068,7 @@ namespace Hl7.Cql.Runtime
             {
                 var result = left
                     .Cast<object>()
-                    .Intersect(right.Cast<object>())
+                    .Intersect(right.Cast<object>(), EqualityComparer)
                     .Cast<T>()
                     .ToList();
                 return result;

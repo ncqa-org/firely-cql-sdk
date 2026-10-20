@@ -10,7 +10,11 @@
 
 using Hl7.Cql.Abstractions;
 using Hl7.Cql.Primitives;
+using System;
+using System.Collections.Concurrent;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace Hl7.Cql.Comparers
 {
@@ -23,6 +27,44 @@ namespace Hl7.Cql.Comparers
 
         public ICqlComparer MemberComparer { get; }
 
+        /// <summary>
+        /// A tuple property and a compiled getter for it.
+        /// </summary>
+        internal sealed class TupleMember
+        {
+            public TupleMember(PropertyInfo property, Func<object, object?> getter)
+            {
+                Property = property;
+                Getter = getter;
+            }
+
+            public PropertyInfo Property { get; }
+            public Func<object, object?> Getter { get; }
+        }
+
+        // Tuple types are generated and fixed for the lifetime of the process, so their members
+        // (in GetProperties() order) and compiled getters can be cached instead of reflecting
+        // on every comparison.
+        private static readonly ConcurrentDictionary<Type, TupleMember[]> MembersByType = new();
+
+        internal static TupleMember[] GetMembers(Type tupleType) =>
+            MembersByType.GetOrAdd(tupleType, static type => type
+                .GetProperties()
+                .Select(p => new TupleMember(p, CreateGetter(type, p)))
+                .ToArray());
+
+        private static Func<object, object?> CreateGetter(Type type, PropertyInfo property)
+        {
+            if (property.GetIndexParameters().Length > 0 || property.GetMethod is null)
+                return instance => property.GetValue(instance);
+
+            var instanceParameter = Expression.Parameter(typeof(object), "instance");
+            var body = Expression.Convert(
+                Expression.Property(Expression.Convert(instanceParameter, type), property),
+                typeof(object));
+            return Expression.Lambda<Func<object, object?>>(body, instanceParameter).Compile();
+        }
+
         public int? Compare(TupleBaseType? x, TupleBaseType? y, string? precision = null)
         {
             if (x == null || y == null)
@@ -31,19 +73,11 @@ namespace Hl7.Cql.Comparers
             var yType = y.GetType();
             if (xType != yType)
                 return null;
-            var joined = from xProp in xType.GetProperties()
-                         join yProp in yType.GetProperties() on xProp equals yProp into g
-                         from foundY in g.DefaultIfEmpty()
-                         select new
-                         {
-                             Property = xProp,
-                             XValue = xProp.GetValue(x),
-                             YValue = foundY == null ? null : foundY.GetValue(y)
-                         };
+            var members = GetMembers(xType);
             var result = 0;
-            foreach (var prop in joined)
+            foreach (var member in members)
             {
-                var compare = MemberComparer.Compare(prop.XValue, prop.YValue, precision);
+                var compare = MemberComparer.Compare(member.Getter(x), member.Getter(y), precision);
                 if (compare == null)
                     return null;
                 if (compare.Value != 0)
@@ -81,18 +115,10 @@ namespace Hl7.Cql.Comparers
             var yType = y.GetType();
             if (xType != yType)
                 return false;
-            var joined = from xProp in xType.GetProperties()
-                         join yProp in yType.GetProperties() on xProp equals yProp into g
-                         from foundY in g.DefaultIfEmpty()
-                         select new
-                         {
-                             Property = xProp,
-                             XValue = xProp.GetValue(x),
-                             YValue = foundY == null ? null : foundY.GetValue(y)
-                         };
-            foreach (var prop in joined)
+            var members = GetMembers(xType);
+            foreach (var member in members)
             {
-                if (!MemberComparer.Equivalent(prop.XValue, prop.YValue, precision))
+                if (!MemberComparer.Equivalent(member.Getter(x), member.Getter(y), precision))
                     return false;
             }
             return true;

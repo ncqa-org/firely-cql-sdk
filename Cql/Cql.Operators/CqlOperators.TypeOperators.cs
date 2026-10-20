@@ -144,20 +144,41 @@ namespace Hl7.Cql.Runtime
                 return value;
             else return null;
         }
+        // ToDate/ToDateTime on FHIR date strings are called for the same strings over and over (e.g. every time an
+        // item's serviced date is read), and each parse runs a regex. CqlDate/CqlDateTime are immutable, so parsed
+        // values are shared through a small bounded cache.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, CqlDate> ParsedDates = new(StringComparer.Ordinal);
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, CqlDateTime> ParsedDateTimes = new(StringComparer.Ordinal);
+        private const int ParsedCacheCapacity = 50_000;
+
         public CqlDate? ConvertStringToDate(string? s)
         {
             if (s == null)
                 return null;
+            if (ParsedDates.TryGetValue(s, out var cached))
+                return cached;
             else if (CqlDate.TryParse(s, out CqlDate? value))
+            {
+                if (ParsedDates.Count >= ParsedCacheCapacity)
+                    ParsedDates.Clear();
+                ParsedDates.TryAdd(s, value!);
                 return value;
+            }
             else return null;
         }
         public CqlDateTime? ConvertStringToDateTime(string? s)
         {
             if (s == null)
                 return null;
+            if (ParsedDateTimes.TryGetValue(s, out var cached))
+                return cached;
             else if (CqlDateTime.TryParse(s, out CqlDateTime? value))
+            {
+                if (ParsedDateTimes.Count >= ParsedCacheCapacity)
+                    ParsedDateTimes.Clear();
+                ParsedDateTimes.TryAdd(s, value!);
                 return value;
+            }
             else return null;
         }
         public CqlTime? ConvertStringToTime(string? s)
@@ -374,4 +395,4 @@ namespace Hl7.Cql.Runtime
         #endregion
 
     }
-}
+}

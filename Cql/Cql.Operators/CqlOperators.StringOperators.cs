@@ -38,7 +38,7 @@ namespace Hl7.Cql.Runtime
         public bool? EndsWith(string argument, string suffix)
         {
             if (argument == null || suffix == null) return null;
-            else return argument.Substring(argument.Length - suffix.Length).Equals(suffix);
+            else return string.Equals(argument.Substring(argument.Length - suffix.Length), suffix, StringComparison.Ordinal);
         }
 
         #endregion
@@ -65,7 +65,7 @@ namespace Hl7.Cql.Runtime
             if (pattern == null || argument == null)
                 return null;
             else
-                return argument.LastIndexOf(pattern);
+                return argument.LastIndexOf(pattern, StringComparison.CurrentCulture);
         }
 
         #endregion
@@ -100,8 +100,8 @@ namespace Hl7.Cql.Runtime
             {
                 if (pattern[0].Equals("^") == false) pattern = "^" + pattern;
                 if (pattern[pattern.Length - 1].Equals("$") == false) pattern += "$";
-                Regex rx = new(pattern);
-                MatchCollection matches = rx.Matches(source);
+                // The static Regex methods cache the parsed pattern, so repeated calls don't re-parse it.
+                MatchCollection matches = Regex.Matches(source, pattern);
                 if (matches.Count == 1) return true;
                 else return false;
             }
@@ -112,7 +112,7 @@ namespace Hl7.Cql.Runtime
         public int? PositionOf(string pattern, string argument)
         {
             if (argument == null || pattern == null) return null;
-            else return argument.IndexOf(pattern);
+            else return argument.IndexOf(pattern, StringComparison.CurrentCulture);
         }
         #endregion
 
@@ -149,7 +149,7 @@ namespace Hl7.Cql.Runtime
         public bool? StartsWith(string argument, string prefix)
         {
             if (argument == null || prefix == null) return null;
-            else return argument.StartsWith(prefix);
+            else return argument.StartsWith(prefix, StringComparison.CurrentCulture);
         }
         #endregion
 
