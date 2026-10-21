@@ -1,7 +1,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 	</PropertyGroup>
 
 	<!-- Solution-wide properties for NuGet packaging -->
@@ -24,9 +24,7 @@
 		<None Include="..\..\README.md" Pack="true" PackagePath=""/>
 	</ItemGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
-	</ItemGroup>
+	<!-- Source Link is built into the .NET 8+ SDK; the Microsoft.SourceLink.GitHub package is no longer needed. -->
 
 	<PropertyGroup>
 		<FirelySdkVersion>5.8.2</FirelySdkVersion>
@@ -35,7 +33,7 @@
 	<!-- Compiler settings -->
 	<PropertyGroup>
 		<Nullable>enable</Nullable>
-		<LangVersion>11.0</LangVersion>
+		<LangVersion>14.0</LangVersion>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 		<Configurations>Debug;Release;FullDebug</Configurations>
 		<AnalysisLevelGlobalization>latest-recommended</AnalysisLevelGlobalization>
@@ -50,6 +48,12 @@
 		<LibraryPKHash></LibraryPKHash>
 	</PropertyGroup>	
 	
+	<!-- Set the CQL_OPTIMIZE=true environment variable (before starting Visual Studio) or pass -p:CQL_OPTIMIZE=true
+	     to build Debug with JIT optimizations on, for timing runs. Leave it unset to debug normally. -->
+	<PropertyGroup Condition=" '$(CQL_OPTIMIZE)' == 'true' ">
+		<Optimize>true</Optimize>
+	</PropertyGroup>
+
 	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
 		<SignAssembly>True</SignAssembly>
 		<DelaySign>true</DelaySign>

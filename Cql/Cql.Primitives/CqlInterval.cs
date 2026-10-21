@@ -37,8 +37,6 @@ namespace Hl7.Cql.Primitives
             this.high = high;
             this.lowClosed = lowClosed;
             this.highClosed = highClosed;
-            String = new Lazy<string>(() =>
-            string.Create(CultureInfo.InvariantCulture, $"{(this.lowClosed ?? false ? "[" : "(")}{this.low}, {this.high}{(this.highClosed ?? false ? "]" : ")")}"));
         }
 
         /// <summary>
@@ -59,8 +57,6 @@ namespace Hl7.Cql.Primitives
             this.high = high;
             this.lowClosed = lowClosed ?? false;
             this.highClosed = highClosed ?? false;
-            String = new Lazy<string>(() =>
-                string.Create(CultureInfo.InvariantCulture, $"{(this.lowClosed ?? false ? "[" : "(")}{this.low}, {this.high}{(this.highClosed ?? false ? "]" : ")")}"));
         }
 
 
@@ -70,7 +66,7 @@ namespace Hl7.Cql.Primitives
             high = (T)((object)null!);
             lowClosed = false;
             highClosed = false;
-            String = new Lazy<string>(() => $"[null, null]");
+            _string = "[null, null]";
         }
 
         /// <summary>
@@ -92,17 +88,21 @@ namespace Hl7.Cql.Primitives
         /// </summary>
         public bool? highClosed { get; }
 
-        private readonly Lazy<string> String;
+        // Formatted on first use. (This used to be a Lazy<string> plus a closure allocated in every constructor,
+        // which made intervals one of the largest sources of allocations.)
+        private string? _string;
+
+        private string Format() => _string ??= string.Create(CultureInfo.InvariantCulture, $"{(this.lowClosed ?? false ? "[" : "(")}{this.low}, {this.high}{(this.highClosed ?? false ? "]" : ")")}");
 
         /// <summary>
         /// Gets a string representation of this interval.
         /// </summary>
-        public override string? ToString() => String?.Value ?? "[]";
+        public override string? ToString() => Format();
 
         /// <summary>
         /// Gets the hash code of the result of <see cref="ToString"/>.
         /// </summary>
-        public override int GetHashCode() => String?.Value?.GetHashCode() ?? 0;
+        public override int GetHashCode() => Format().GetHashCode();
 
         /// <summary>
         /// Compares this object to <paramref name="obj"/> for equality.

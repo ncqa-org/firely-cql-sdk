@@ -17,7 +17,7 @@ namespace Hl7.Cql.Iso8601
     /// <summary>
     /// Represents a time according to ISO 8601, with components isolated and with supplied precision level retained.
     /// </summary>
-    public class TimeIso8601
+    public partial class TimeIso8601
     {
         // Note: integer types used here because C# promotes smaller types to 4 byte ints for all math.
         // That conversion ad nauseum is more expensive than superfluous memory use.
@@ -107,7 +107,11 @@ namespace Hl7.Cql.Iso8601
         /// <summary>
         /// The regular expression used to parse ISO 8601 date times.
         /// </summary>
-        public static readonly Regex Expression = new(@"T?(?'hour'\d\d)?(:(?'minute'\d\d)?(:(?'second'\d\d)(\.(?'ms'\d{1,3}))?)?)?(?'timezone'([\+\-]?(?'tzhour'\d\d)(:(?'tzminute'\d\d))?)|Z)?", RegexOptions.Compiled);
+        public static readonly Regex Expression = ExpressionRegex();
+
+        // Source-generated at compile time (.NET 7+): no runtime regex parsing/compilation on first use.
+        [GeneratedRegex(@"T?(?'hour'\d\d)?(:(?'minute'\d\d)?(:(?'second'\d\d)(\.(?'ms'\d{1,3}))?)?)?(?'timezone'([\+\-]?(?'tzhour'\d\d)(:(?'tzminute'\d\d))?)|Z)?")]
+        private static partial Regex ExpressionRegex();
 
         /// <summary>
         /// Creates an instance.

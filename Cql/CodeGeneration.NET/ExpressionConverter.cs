@@ -60,8 +60,10 @@ namespace Hl7.Cql.CodeGeneration.NET
 
         // private static readonly ObjectIDGenerator gen = new();
         // Replace the obsolete ObjectIDGenerator with a Dictionary-based approach for unique ID generation.
-        private static readonly Dictionary<object, long> gen = new();
-        private static long nextId = 1;
+        // Shared by all converters (code generation can run on several threads): a weak table so names are stable per
+        // parameter without keeping expression trees alive, and Interlocked for the counter.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ParameterExpression, object> gen = new();
+        private static long nextId;
 
         public string LibraryName { get; }
         public IList<string> ContextLibraries { get; }
@@ -139,7 +141,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                         if (!isFirstStatement) sb.AppendLine();
                         sb.Append(indent + 1, "return ");
                     }
-                    sb.Append(ConvertExpression(indent + 1, childStatement, false));
+                    sb.Append(ConvertExpression(indent + 1, StripReturnedLiteralCast(childStatement), false));
                 }
                 else
                 {
@@ -332,7 +334,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 var sb = new StringBuilder();
                 sb.AppendLine(indent, "{");
                 sb.Append(indent + 1, "return ");
-                sb.Append(ConvertExpression(indent + 1, conditionalActionBlock, false));
+                sb.Append(ConvertExpression(indent + 1, StripReturnedLiteralCast(conditionalActionBlock), false));
                 sb.AppendLine(";");
                 sb.Append(indent, "}");
 
@@ -532,6 +534,16 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
         }
 
+        /// <summary>
+        /// In a <c>return</c> the method's declared return type already converts <c>false</c> to <c>bool?</c>, so
+        /// <c>return (bool?)false;</c> can be written <c>return false;</c>. Only literal constants are unwrapped.
+        /// </summary>
+        private static Expression StripReturnedLiteralCast(Expression returned) =>
+            returned is UnaryExpression { NodeType: ExpressionType.Convert, Method: null, Operand: ConstantExpression { Value: not null } constant } cast
+            && Nullable.GetUnderlyingType(cast.Type) == constant.Type
+                ? constant
+                : returned;
+
         private string convertUnaryExpression(int indent, string leadingIndentString, UnaryExpression unary)
         {
             //var stripped = unary;
@@ -548,11 +560,20 @@ namespace Hl7.Cql.CodeGeneration.NET
                     {
                         var operand = ConvertExpression(indent, strippedUnary.Operand, false);
 
+                        // A cast to the type the operand already has does nothing, e.g. (b_ as IEnumerable<T>) where b_ is IEnumerable<T>.
+                        if (strippedUnary.Method is null && strippedUnary.Operand.Type == strippedUnary.Type)
+                            return $"{leadingIndentString}{operand}";
+
                         var typeName = PrettyTypeName(strippedUnary.Type);
                         var code = strippedUnary.NodeType == ExpressionType.TypeAs ?
                             $"{leadingIndentString}{Parenthesize($"{operand} as {typeName}")}" :
                             $"{leadingIndentString}{Parenthesize($"({typeName}){operand}")}";
                         return code;
+                    }
+                case ExpressionType.Not when strippedUnary.Type == typeof(bool) && strippedUnary.Method is null:
+                    {
+                        var operand = ConvertExpression(indent, strippedUnary.Operand, false);
+                        return $"{leadingIndentString}(!{Parenthesize(operand)})";
                     }
                 default:
                     throw new NotSupportedException($"Don't know how to convert unary operator {strippedUnary.NodeType} into C#.");
@@ -569,11 +590,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 return p.Name;
             else
             {
-                if (!gen.TryGetValue(p, out var id))
-                {
-                    id = nextId++;
-                    gen[p] = id;
-                }
+                var id = (long)gen.GetValue(p, static _ => System.Threading.Interlocked.Increment(ref nextId));
                 return $"var{id}";
             }
         }
@@ -622,8 +639,8 @@ namespace Hl7.Cql.CodeGeneration.NET
             ExpressionType.Divide => "/",
             ExpressionType.DivideAssign => "/=",
             ExpressionType.Equal => "==",
-            ExpressionType.ExclusiveOr => "^^",
-            ExpressionType.ExclusiveOrAssign => "^^=",
+            ExpressionType.ExclusiveOr => "^",
+            ExpressionType.ExclusiveOrAssign => "^=",
             ExpressionType.GreaterThan => ">",
             ExpressionType.GreaterThanOrEqual => ">=",
             ExpressionType.LeftShift => "<<",
@@ -700,7 +717,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             {
                 typeName = $"{PrettyTypeName(type.DeclaringType!)}.{typeName}";
             }
-            if (typeName.StartsWith("Tuple_"))
+            if (typeName.StartsWith("Tuple_", StringComparison.Ordinal))
             {
                 return $"{type.Namespace}.{typeName}";
             }
@@ -716,11 +733,45 @@ namespace Hl7.Cql.CodeGeneration.NET
         private static string Parenthesize(string term)
         {
             term = term.Trim();
-            if (term.StartsWith('(') && term.EndsWith(')')) return term;
+            if (IsWrappedInParentheses(term)) return term;
 
             return term.ToCharArray().Any(char.IsWhiteSpace) ? $"({term})" : term;
         }
 
+
+        /// <summary>
+        /// True when the whole term is one parenthesized group. "(a) + (b)" starts and ends with a parenthesis
+        /// but is not wrapped, and must still be parenthesized. Parentheses inside string and char literals are ignored.
+        /// </summary>
+        private static bool IsWrappedInParentheses(string term)
+        {
+            if (term.Length < 2 || term[0] != '(' || term[^1] != ')')
+                return false;
+
+            var depth = 0;
+            for (var i = 0; i < term.Length; i++)
+            {
+                var c = term[i];
+                if (c is '"' or '\'')
+                {
+                    // skip the literal, honoring escapes (verbatim strings are not emitted by this converter)
+                    var quote = c;
+                    for (i++; i < term.Length && term[i] != quote; i++)
+                    {
+                        if (term[i] == '\\') i++;
+                    }
+                    continue;
+                }
+                if (c == '(') depth++;
+                else if (c == ')')
+                {
+                    depth--;
+                    if (depth == 0 && i < term.Length - 1)
+                        return false;
+                }
+            }
+            return depth == 0;
+        }
 
         private static string escapeKeywords(string symbol)
         {

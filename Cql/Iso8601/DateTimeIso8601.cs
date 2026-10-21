@@ -17,7 +17,7 @@ namespace Hl7.Cql.Iso8601
     /// <summary>
     /// Represents an instant in time according to ISO 8601, with components isolated and with supplied precision level retained.
     /// </summary>
-    public class DateTimeIso8601
+    public partial class DateTimeIso8601
     {
 
         // Note: integer types used here because C# promotes smaller types to 4 byte ints for all math.
@@ -84,7 +84,11 @@ namespace Hl7.Cql.Iso8601
         /// <summary>
         /// The regular expression used to parse ISO 8601 date times.
         /// </summary>
-        public static readonly Regex Expression = new(@"(?'year'\d\d\d\d)(-(?'month'\d\d)(-(?'day'\d\d)(T(?'hour'\d\d)?(:(?'minute'\d\d)?(:(?'second'\d\d)(\.(?'ms'\d{1,3}))?)?)?(?'timezone'([\+\-]?(?'tzhour'\d\d)(:(?'tzminute'\d\d))?)|Z)?)?)?)?", RegexOptions.Compiled);
+        public static readonly Regex Expression = ExpressionRegex();
+
+        // Source-generated at compile time (.NET 7+): no runtime regex parsing/compilation on first use.
+        [GeneratedRegex(@"(?'year'\d\d\d\d)(-(?'month'\d\d)(-(?'day'\d\d)(T(?'hour'\d\d)?(:(?'minute'\d\d)?(:(?'second'\d\d)(\.(?'ms'\d{1,3}))?)?)?(?'timezone'([\+\-]?(?'tzhour'\d\d)(:(?'tzminute'\d\d))?)|Z)?)?)?)?")]
+        private static partial Regex ExpressionRegex();
 
         /// <summary>
         /// Local now expressed as a <see cref="DateTimeOffset"/>.

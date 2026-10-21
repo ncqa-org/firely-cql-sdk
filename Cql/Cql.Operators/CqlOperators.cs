@@ -106,6 +106,27 @@ namespace Hl7.Cql.Runtime
         public CqlDateTime NowValue { get; }
 
         internal IEqualityComparer<object> EqualityComparer { get; private set; }
+
+        private DistinctHasher? _distinctHasher;
+        private ICqlComparer? _distinctHasherComparer;
+
+        /// <summary>
+        /// Gets the hasher used by <see cref="ListDistinct{T}(IEnumerable{T})"/>, or <see langword="null"/> when
+        /// <see cref="Comparer"/> is not the standard <see cref="CqlComparers"/> (then distinct compares pairwise).
+        /// </summary>
+        internal DistinctHasher? DistinctHasher
+        {
+            get
+            {
+                var comparer = Comparer;
+                if (!ReferenceEquals(comparer, _distinctHasherComparer))
+                {
+                    _distinctHasher = comparer is CqlComparers cqlComparers ? new DistinctHasher(cqlComparers) : null;
+                    _distinctHasherComparer = comparer;
+                }
+                return _distinctHasher;
+            }
+        }
         internal IComparer<object> DataComparer { get; private set; }
 
         internal ICqlComparer EnumComparer { get; private set; }
@@ -154,14 +175,34 @@ namespace Hl7.Cql.Runtime
             return source;
         }
 
-        public IEnumerable<R>? SelectOrNull<T, R>(IEnumerable<T?>? source, Func<T?, R> select) =>
-            source?.Select(select).ToList();
+        public IEnumerable<R>? SelectOrNull<T, R>(IEnumerable<T?>? source, Func<T?, R> select)
+        {
+            if (source is null)
+                return null;
+
+            var result = source.TryGetNonEnumeratedCount(out var count) ? new List<R>(count) : new List<R>();
+            foreach (var item in source)
+                result.Add(select(item));
+            return result;
+        }
 
         public IEnumerable<TResult>? SelectManyOrNull<TSource, TResult>(IEnumerable<TSource>? source,
-            Func<TSource, IEnumerable<TResult>> collectionSelector) =>
-            source?.Where(t => t != null)
-                .SelectMany(t => collectionSelector(t) ?? Enumerable.Empty<TResult>())?
-                .ToList();
+            Func<TSource, IEnumerable<TResult>> collectionSelector)
+        {
+            if (source is null)
+                return null;
+
+            var result = new List<TResult>();
+            foreach (var item in source)
+            {
+                if (item is null)
+                    continue;
+                var inner = collectionSelector(item);
+                if (inner is not null)
+                    result.AddRange(inner);
+            }
+            return result;
+        }
 
         public IEnumerable<TResult>? SelectManyResultsOrNull<TSource, TCollection, TResult>(IEnumerable<TSource>? source,
             Func<TSource, IEnumerable<TCollection>> collectionSelector,
@@ -169,8 +210,102 @@ namespace Hl7.Cql.Runtime
             source == null ? null : source!.SelectMany(collectionSelector!, resultSelector!).ToList();
 
 
-        public IEnumerable<T>? WhereOrNull<T>(IEnumerable<T>? source, Func<T, bool?> lambda) =>
-            source == null ? null : source.Where(x => lambda(x) ?? false).ToList();
+        public IEnumerable<T>? WhereOrNull<T>(IEnumerable<T>? source, Func<T, bool?> lambda)
+        {
+            if (source is null)
+                return null;
+
+            // Most filters match nothing; don't allocate a list until something does.
+            List<T>? result = null;
+            foreach (var item in source)
+            {
+                if (lambda(item) == true)
+                    (result ??= new List<T>()).Add(item);
+            }
+            return result ?? (IEnumerable<T>)Array.Empty<T>();
+        }
+
+        public bool? ExistsWhere<T>(IEnumerable<T>? source, Func<T, bool?> predicate)
+        {
+            if (source is null)
+                return false;
+
+            if (source is List<T> list)
+            {
+                // Index loop: avoids boxing List<T>'s enumerator behind IEnumerable<T>.
+                for (var i = 0; i < list.Count; i++)
+                {
+                    var item = list[i];
+                    if (predicate(item) == true && item is not null)
+                        return true;
+                }
+                return false;
+            }
+
+            foreach (var item in source)
+            {
+                // Same order as ExistsInList(WhereOrNull(...)): the predicate sees every element (including nulls),
+                // and only a non-null match counts.
+                if (predicate(item) == true && item is not null)
+                    return true;
+            }
+
+            return false;
+        }
+
+        public IEnumerable<T>? WithRelated<T, R>(IEnumerable<T>? source,
+            Func<T, IEnumerable<R>?> related,
+            Func<T, R, bool?> suchThat) =>
+            source is null ? null : FilterRelated(source, related, suchThat, keepWhenMatched: true);
+
+        public IEnumerable<T>? WithoutRelated<T, R>(IEnumerable<T>? source,
+            Func<T, IEnumerable<R>?> related,
+            Func<T, R, bool?> suchThat) =>
+            source is null ? null : FilterRelated(source, related, suchThat, keepWhenMatched: false);
+
+        private static List<T> FilterRelated<T, R>(IEnumerable<T> source,
+            Func<T, IEnumerable<R>?> related,
+            Func<T, R, bool?> suchThat,
+            bool keepWhenMatched)
+        {
+            var result = source.TryGetNonEnumeratedCount(out var count) ? new List<T>(count) : new List<T>();
+            foreach (var outer in source)
+            {
+                // A null source row never has related rows: it is dropped by "with" and kept by "without".
+                var matched = outer is not null && HasRelated(outer, related(outer), suchThat);
+                if (matched == keepWhenMatched)
+                    result.Add(outer);
+            }
+            return result;
+
+            static bool HasRelated(T outer, IEnumerable<R>? candidates, Func<T, R, bool?> suchThat)
+            {
+                if (candidates is null)
+                    return false;
+                foreach (var candidate in candidates)
+                {
+                    if (suchThat(outer, candidate) == true)
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        public IEnumerable<R>? FlattenSelect<T, R>(IEnumerable<T?>? source, Func<T?, IEnumerable<R>?> selector)
+        {
+            if (source is null)
+                return null;
+
+            var result = source.TryGetNonEnumeratedCount(out var count) ? new List<R>(count) : new List<R>();
+            foreach (var item in source)
+            {
+                var inner = selector(item);
+                if (inner is not null)
+                    result.AddRange(inner);
+            }
+
+            return result;
+        }
 
         public TAccumulate? AggregateOrNull<TSource, TAccumulate>(IEnumerable<TSource?>? source, TAccumulate? seed, Func<TAccumulate?, TSource?, TAccumulate?> lambda) =>
             source == null ? default : source.Aggregate(seed, lambda);
@@ -197,4 +332,4 @@ namespace Hl7.Cql.Runtime
             DataSource.RetrieveByValueSet<T>(valueSet, codeProperty);
     }
 }
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

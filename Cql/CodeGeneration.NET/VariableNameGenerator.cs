@@ -15,7 +15,7 @@ namespace Hl7.Cql.CodeGeneration.NET
 {
     internal class VariableNameGenerator
     {
-        private readonly object SyncRoot = new();
+        private readonly System.Threading.Lock SyncRoot = new();
         public string Postfix { get; }
 
         private List<string> Reserved { get; }
@@ -114,7 +114,6 @@ namespace Hl7.Cql.CodeGeneration.NET
             identifier = identifier.Replace(":", "_");
             identifier = identifier.Replace("/", "_");
             identifier = identifier.Replace("+", "plus");
-            identifier = identifier.Replace("-", "minus");
             identifier = identifier.Replace("\"", "");
             identifier = identifier.Replace("'", "");
             identifier = identifier.Replace(";", "_");
@@ -122,7 +121,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             identifier = identifier.Replace("%", "percent");
 
 
-            if (identifier.StartsWith("$"))
+            if (identifier.StartsWith('$'))
                 identifier = identifier.Substring(1);
             var keyword = SyntaxFacts.GetKeywordKind(identifier);
             if (keyword != SyntaxKind.None)

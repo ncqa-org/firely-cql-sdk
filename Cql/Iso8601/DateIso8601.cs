@@ -17,7 +17,7 @@ namespace Hl7.Cql.Iso8601
     /// <summary>
     /// Represents a date in time according to ISO 8601, with year, month and day components isolated and with supplied precision level retained.
     /// </summary>
-    public class DateIso8601
+    public partial class DateIso8601
     {
 
         // Note: integer types used here because C# promotes smaller types to 4 byte ints for all math.
@@ -49,7 +49,11 @@ namespace Hl7.Cql.Iso8601
         /// <summary>
         /// The regular expression used to parse ISO 8601 dates.
         /// </summary>
-        public static readonly Regex Expression = new(@"(?'year'\d\d\d\d)(-(?'month'\d\d)(-(?'day'\d\d))?)?", RegexOptions.Compiled);
+        public static readonly Regex Expression = ExpressionRegex();
+
+        // Source-generated at compile time (.NET 7+): no runtime regex parsing/compilation on first use.
+        [GeneratedRegex(@"(?'year'\d\d\d\d)(-(?'month'\d\d)(-(?'day'\d\d))?)?")]
+        private static partial Regex ExpressionRegex();
 
         /// <summary>
         /// Creates an instance.

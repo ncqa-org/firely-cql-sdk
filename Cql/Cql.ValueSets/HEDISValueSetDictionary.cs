@@ -48,8 +48,8 @@ namespace Hl7.Cql.ValueSets
                 throw new ArgumentNullException(nameof(code));
             }
 
-            _codesByHash.Add(GetKey(valueSetUri, code.code ?? "", code.system ?? NullCodeSystem), code);
-            var nullKey = GetKey(valueSetUri, code.code ?? "", NullCodeSystem);
+            _codesByHash.Add(new CodeKey(valueSetUri, code.code ?? "", code.system ?? NullCodeSystem), code);
+            var nullKey = new CodeKey(valueSetUri, code.code ?? "", NullCodeSystem);
             _codesByHash.TryAdd(nullKey, code);
 
             if (!_codesInValueSet.TryGetValue(valueSetUri, out var codes))
@@ -68,8 +68,8 @@ namespace Hl7.Cql.ValueSets
         /// <param name="code">The code to add.</param>
         public void Set(string valueSetUri, CqlCode code)
         {
-            _codesByHash[GetKey(valueSetUri, code.code ?? "", code.system ?? "")] = code;
-            _codesByHash[GetKey(valueSetUri, code.code ?? "", NullCodeSystem)] = code;
+            _codesByHash[new CodeKey(valueSetUri, code.code ?? "", code.system ?? "")] = code;
+            _codesByHash[new CodeKey(valueSetUri, code.code ?? "", NullCodeSystem)] = code;
             if (!_codesInValueSet.TryGetValue(valueSetUri, out var codes))
             {
                 codes = new HashSet<CqlCode>(_codeHasher)
@@ -92,7 +92,7 @@ namespace Hl7.Cql.ValueSets
         /// <returns><see langword="true"/> if the given code is present in the given value set.</returns>
 
         public bool IsCodeInValueSet(string valueSetUri, string code) =>
-            _codesByHash.ContainsKey(GetKey(valueSetUri, code, NullCodeSystem));
+            _codesByHash.ContainsKey(new CodeKey(valueSetUri, code, NullCodeSystem));
 
 
         /// <summary>
@@ -104,7 +104,7 @@ namespace Hl7.Cql.ValueSets
         /// <param name="systemUriOrOid">The code system's canonical URI or its OID.</param>
         /// <returns><see langword="true"/> if the given code is present in the given value set.</returns>
         public bool IsCodeInValueSet(string valueSetUri, string code, string systemUriOrOid) =>
-            _codesByHash.ContainsKey(GetKey(valueSetUri, code, systemUriOrOid));
+            _codesByHash.ContainsKey(new CodeKey(valueSetUri, code, systemUriOrOid));
 
         /// <summary>
         /// Tries to ge the codes in the value set as an <see cref="IReadOnlyCollection{CqlCode}"/>.
@@ -133,8 +133,10 @@ namespace Hl7.Cql.ValueSets
             //NOTE(agw): each system is _almost_ a unique length.
             // of the ones that are not a unique length, you can offset by one based on the final
             // character. useOffsetArray determines if we need to do this.
-            int useOffset = useOffsetArray[systemString.Length];
-            int offset = (systemString[systemString.Length - 1] > 'm' ? 1 : 0);
+            if (systemString.Length == 0)
+                return 0;
+            int useOffset = systemString.Length < useOffsetArray.Length ? useOffsetArray[systemString.Length] : 0;
+            int offset = (char.ToLowerInvariant(systemString[systemString.Length - 1]) > 'm' ? 1 : 0);
             int systemHash = systemString.Length + offset * useOffset;
             return systemHash;
         }
@@ -160,21 +162,13 @@ namespace Hl7.Cql.ValueSets
             Span<byte> bytes = stackalloc byte[32];
             int systemHash = HashSystem(systemUri);
 
-            // get valueset hash
+            // get valueset hash: the last 4 characters (lower-cased, so the hash agrees with the
+            // case-insensitive comparison in CodeKeyComparer), safe for URIs shorter than 4 characters.
             ulong valuesetHash = 0;
             {
-                // get last 4 chars as unique hash
-                ReadOnlySpan<char> last4 = valueSetUri.AsSpan();
-                ref char last4Ref = ref MemoryMarshal.GetReference<char>(last4);
-                ref char minus4 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 4);
-                ref char minus3 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 3);
-                ref char minus2 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 2);
-                ref char minus1 = ref Unsafe.Add(ref last4Ref, valueSetUri.Length - 1);
-
-                valuesetHash = valuesetHash | ((ulong)minus4) << 48;
-                valuesetHash = valuesetHash | ((ulong)minus3) << 32;
-                valuesetHash = valuesetHash | ((ulong)minus2) << 16;
-                valuesetHash = valuesetHash | ((ulong)minus1) << 0;
+                var start = Math.Max(0, valueSetUri.Length - 4);
+                for (var i = start; i < valueSetUri.Length; i++)
+                    valuesetHash = (valuesetHash << 16) | char.ToLowerInvariant(valueSetUri[i]);
             }
 
             // copy / compress various hashes into one
@@ -226,14 +220,56 @@ namespace Hl7.Cql.ValueSets
             return hash;
         }
 
-        private readonly Dictionary<ulong, CqlCode> _codesByHash = new();
+        private readonly Dictionary<CodeKey, CqlCode> _codesByHash = new(CodeKeyComparer.Instance);
+
+        /// <summary>
+        /// A value set / code system / code triple. The fast <see cref="GetKey"/> hash only looks at the end of the value
+        /// set URI, the length of the system and the first 20 characters of the code, so different triples can share a
+        /// hash. The comparer therefore also compares the strings themselves: value set and system case-insensitively
+        /// (as the value set index does), code exactly.
+        /// </summary>
+        private readonly struct CodeKey
+        {
+            public CodeKey(string valueSet, string code, string system)
+            {
+                ValueSet = valueSet;
+                Code = code;
+                System = system;
+                Hash = GetKey(valueSet, code, system);
+            }
+
+            public string ValueSet { get; }
+            public string Code { get; }
+            public string System { get; }
+            public ulong Hash { get; }
+        }
+
+        private sealed class CodeKeyComparer : IEqualityComparer<CodeKey>
+        {
+            public static readonly CodeKeyComparer Instance = new();
+
+            public bool Equals(CodeKey x, CodeKey y) =>
+                x.Hash == y.Hash
+                && string.Equals(x.Code, y.Code, StringComparison.Ordinal)
+                && string.Equals(x.System, y.System, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(x.ValueSet, y.ValueSet, StringComparison.OrdinalIgnoreCase);
+
+            public int GetHashCode(CodeKey key) => (int)(key.Hash ^ (key.Hash >> 32));
+        }
 
         private readonly Dictionary<string, HashSet<CqlCode>> _codesInValueSet =
             new(StringComparer.OrdinalIgnoreCase);
 
         private class CqlCodeHasher : IEqualityComparer<CqlCode>
         {
-            public bool Equals(CqlCode? x, CqlCode? y) => true;
+            // Must agree with GetHashCode: two codes are the same entry when both code and system match.
+            // (This used to return true unconditionally, so distinct codes whose hashes collided were
+            // silently dropped from the value set's code list, and from value sets that include it.)
+            public bool Equals(CqlCode? x, CqlCode? y) =>
+                ReferenceEquals(x, y)
+                || (x is not null && y is not null
+                    && string.Equals(x.code, y.code, StringComparison.Ordinal)
+                    && string.Equals(x.system, y.system, StringComparison.Ordinal));
 
             // we're using low ASCII values that are invalid in real codes
             public int GetHashCode(CqlCode obj) =>

@@ -126,7 +126,7 @@ namespace Hl7.Cql.CodeGeneration.NET
 
             var assemblies = new Dictionary<string, AssemblyData>();
             var tupleStreams = navToLibraryStream
-                .Where(kvp => kvp.Key.StartsWith("Tuples" + Path.DirectorySeparatorChar));
+                .Where(kvp => kvp.Key.StartsWith("Tuples" + Path.DirectorySeparatorChar, StringComparison.Ordinal));
             var tupleAssembly = CompileTuples(tupleStreams, references);
             assemblies.Add("TupleTypes", tupleAssembly);
 

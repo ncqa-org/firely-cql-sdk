@@ -1007,7 +1007,7 @@ namespace Hl7.Cql.Compiler
 
         protected Expression? IdentifierRef(IdentifierRef ire, ExpressionBuilderContext ctx)
         {
-            if (string.Equals("$this", ire.name) && ctx.ImpliedAlias != null)
+            if (string.Equals("$this", ire.name, StringComparison.Ordinal) && ctx.ImpliedAlias != null)
             {
                 var scopeExpression = ctx.GetScopeExpression(ctx.ImpliedAlias);
                 return scopeExpression;
@@ -1062,20 +1062,10 @@ namespace Hl7.Cql.Compiler
             {
                 foreach (var relationship in query.relationship ?? Enumerable.Empty<RelationshipClause>())
                 {
-                    var selectManyLambda = WithToSelectManyBody(querySourceAlias!, elementType, relationship, ctx);
-
-                    var selectManyCall = OperatorBinding.Bind(CqlOperator.SelectMany, ctx.RuntimeContextParameter,
-                        @return, selectManyLambda);
-                    if (relationship is Without)
-                    {
-                        var callExcept = OperatorBinding.Bind(CqlOperator.ListExcept, ctx.RuntimeContextParameter,
-                            @return, selectManyCall);
-                        @return = callExcept;
-                    }
-                    else
-                    {
-                        @return = selectManyCall;
-                    }
+                    // with/without are semi-joins: keep each source row (once) when a related row
+                    // satisfying such-that does (or does not) exist. Compiled to WithRelated/WithoutRelated,
+                    // which stop at the first match and build no intermediate lists.
+                    @return = RelationshipToSemiJoin(@return, querySourceAlias!, elementType, relationship, ctx);
                 }
             }
             // The element type may have changed
@@ -1297,20 +1287,8 @@ namespace Hl7.Cql.Compiler
             {
                 foreach (var relationship in query.relationship ?? Enumerable.Empty<RelationshipClause>())
                 {
-                    var selectManyLambda = WithToSelectManyBody(multiSourceTupleType, relationship, ctx);
-
-                    var selectManyCall = OperatorBinding.Bind(CqlOperator.SelectMany, ctx.RuntimeContextParameter,
-                        @return, selectManyLambda);
-                    if (relationship is Without)
-                    {
-                        var callExcept = OperatorBinding.Bind(CqlOperator.ListExcept, ctx.RuntimeContextParameter,
-                            @return, selectManyCall);
-                        @return = callExcept;
-                    }
-                    else
-                    {
-                        @return = selectManyCall;
-                    }
+                    // See the single-source overload: with/without are compiled to WithRelated/WithoutRelated.
+                    @return = RelationshipToSemiJoin(@return, multiSourceTupleType, relationship, ctx);
                 }
             }
 
@@ -2044,115 +2022,91 @@ namespace Hl7.Cql.Compiler
             return false;
         }
 
-        protected LambdaExpression WithToSelectManyBody(string outerScope,
+        /// <summary>
+        /// Compiles a <c>with</c>/<c>without</c> clause of a single-source query to
+        /// <c>WithRelated(source, outer =&gt; related, (outer, alias) =&gt; suchThat)</c> (or <c>WithoutRelated</c>).
+        /// </summary>
+        protected Expression RelationshipToSemiJoin(Expression source,
+            string outerScope,
             Type outerElementType,
-            RelationshipClause with,
+            RelationshipClause relationship,
             ExpressionBuilderContext ctx)
         {
-            if (with.expression == null)
-                throw new ArgumentException($"With must have a source expression.", nameof(with));
-            if (with.suchThat == null)
-                throw new ArgumentException($"With must have a suchthat expression.", nameof(with));
-
             //define "With Such That":
             //[Encounter] E
-            //  with[Condition] P
+            //  with [Condition] P
             //   such that P.onset during E.period
-            //     and P.abatement after end of E.period
+            //
+            // becomes
+            //
+            // WithRelated([Encounter], E => [Condition], (E, P) => P.onset during E.period)
+            var outerParameter = Expression.Parameter(outerElementType, outerScope);
+            var outerContext = ctx.WithScopes(new ExpressionElementPairForIdentifier(outerScope, (outerParameter, relationship)));
+            return RelationshipToSemiJoin(source, outerParameter, outerContext, relationship, ctx);
+        }
 
-            //Func<Bundle, Context, IEnumerable<Encounter>> x = (bundle, ctx) =>
-            //    bundle.Entry.ByResourceType<Encounter>()
-            //    .SelectMany(E =>
-            //        bundle.Entry.ByResourceType<Condition>() // <--
-            //            .Where(P => true) // such that goes here
-            //            .Select(P => E));
-            var selectManyParameter = Expression.Parameter(outerElementType, outerScope);
-            var selectManyContext = ctx.WithScopes(new ExpressionElementPairForIdentifier(outerScope, (selectManyParameter, with)));
-            var source = TranslateExpression(with.expression, selectManyContext);
-            if (!IsOrImplementsIEnumerableOfT(source.Type))
+        /// <summary>
+        /// Compiles a <c>with</c>/<c>without</c> clause of a multi-source query, where the outer row is a tuple
+        /// whose properties are the query source aliases.
+        /// </summary>
+        protected Expression RelationshipToSemiJoin(Expression source,
+            Type tupleType,
+            RelationshipClause relationship,
+            ExpressionBuilderContext ctx)
+        {
+            var outerParameter = Expression.Parameter(tupleType, TypeNameToIdentifier(tupleType, ctx));
+            var scopes = (from property in tupleType.GetProperties()
+                          let propertyAccess = Expression.Property(outerParameter, property)
+                          select new ExpressionElementPairForIdentifier(property.Name, (propertyAccess, relationship)))
+                         .ToArray();
+            var outerContext = ctx.WithScopes(scopes);
+            return RelationshipToSemiJoin(source, outerParameter, outerContext, relationship, ctx);
+        }
+
+        private Expression RelationshipToSemiJoin(Expression source,
+            ParameterExpression outerParameter,
+            ExpressionBuilderContext outerContext,
+            RelationshipClause relationship,
+            ExpressionBuilderContext ctx)
+        {
+            if (relationship.expression == null)
+                throw new ArgumentException($"With must have a source expression.", nameof(relationship));
+            if (relationship.suchThat == null)
+                throw new ArgumentException($"With must have a suchthat expression.", nameof(relationship));
+
+            var related = TranslateExpression(relationship.expression, outerContext);
+            if (!IsOrImplementsIEnumerableOfT(related.Type))
             {
                 // e.g.:
                 // with "Index Prescription Start Date" IPSD
                 // where IPSD is a Date
                 // Promote to an array for consistency.
-                var newArray = Expression.NewArrayInit(source.Type, source);
-                source = newArray;
+                related = Expression.NewArrayInit(related.Type, related);
             }
-            var sourcElementType = TypeResolver.GetListElementType(source.Type)!;
+            var relatedElementType = TypeResolver.GetListElementType(related.Type, @throw: true)!;
+            var relatedListType = typeof(IEnumerable<>).MakeGenericType(relatedElementType);
+            var relatedLambda = Expression.Lambda(
+                typeof(Func<,>).MakeGenericType(outerParameter.Type, relatedListType),
+                related,
+                outerParameter);
 
-            var whereLambdaParameter = Expression.Parameter(sourcElementType, with.alias);
-            var whereContext = selectManyContext.WithScopes(new ExpressionElementPairForIdentifier(with.alias!, (whereLambdaParameter, with)));
-            var suchThatBody = TranslateExpression(with.suchThat, whereContext);
+            var relatedParameter = Expression.Parameter(relatedElementType, relationship.alias);
+            var suchThatContext = outerContext.WithScopes(new ExpressionElementPairForIdentifier(relationship.alias!, (relatedParameter, relationship)));
+            var suchThat = TranslateExpression(relationship.suchThat, suchThatContext);
+            if (suchThat.Type != typeof(bool?))
+                suchThat = Expression.Convert(suchThat, typeof(bool?));
+            var suchThatLambda = Expression.Lambda(suchThat, outerParameter, relatedParameter);
 
-            var whereLambda = Expression.Lambda(suchThatBody, whereLambdaParameter);
-            var callWhereOnSource = OperatorBinding.Bind(CqlOperator.Where, ctx.RuntimeContextParameter, source, whereLambda);
-
-            var selectLambdaParameter = Expression.Parameter(sourcElementType, with.alias);
-            var selectBody = selectManyParameter; // P => E
-            var selectLambda = Expression.Lambda(selectBody, selectLambdaParameter);
-            var callSelectOnWhere = OperatorBinding.Bind(CqlOperator.Select, ctx.RuntimeContextParameter, callWhereOnSource, selectLambda);
-            var selectManyLambda = Expression.Lambda(callSelectOnWhere, selectManyParameter);
-
-            return selectManyLambda;
-        }
-
-        protected LambdaExpression WithToSelectManyBody(Type tupleType,
-            RelationshipClause with,
-            ExpressionBuilderContext ctx)
-        {
-            if (with.expression == null)
-                throw new ArgumentException($"With must have a source expression.", nameof(with));
-            if (with.suchThat == null)
-                throw new ArgumentException($"With must have a suchthat expression.", nameof(with));
-
-            //define "With Such That":
-            //from [Encounter] enc,
-            //  [Observation] obs
-            //  with[Condition] P
-            //   such that P.onset during E.period
-            //     and P.abatement after end of E.period
-
-            // A tuple type is created e.g.:
-            // class Tuple1
-            // {
-            //      Encounter enc { get; set; }
-            //      Observation obs { get; set; }
-            // }
-            //  We then cross join all combinations of encs and observations into an IEnumerable<TupleT>
-            //  In the CQL, "enc" and "obs" are valid scopes in the with and such-that clauses.
-            //  They need to resolve to property accessors
-            //  on the lambda parameter we create for the SelectMany call.
-            //  IEnumerable<Tuple1> source = <cross join expression>;
-            //
-            //  source
-            //    .SelectMany(T =>
-            //        bundle.Entry.ByResourceType<Condition>() // <--
-            //            .Where(P => true) // such that goes here, in place of "true"
-            //            .Select(P => E));
-
-            var selectManyParameter = Expression.Parameter(tupleType, TypeNameToIdentifier(tupleType, ctx));
-            var scopes = (from property in tupleType.GetProperties()
-                          let propertyAccess = Expression.Property(selectManyParameter, property)
-                          select new ExpressionElementPairForIdentifier(property.Name, (propertyAccess, with)))
-                         .ToArray();
-            var selectManyContext = ctx.WithScopes(scopes);
-
-            var source = TranslateExpression(with.expression, selectManyContext);
-            var sourceElementType = TypeResolver.GetListElementType(source.Type)!;
-
-            var whereLambdaParameter = Expression.Parameter(sourceElementType, with.alias);
-            var whereContext = selectManyContext.WithScopes(new ExpressionElementPairForIdentifier(with.alias!, (whereLambdaParameter, with)));
-            var suchThatBody = TranslateExpression(with.suchThat, whereContext);
-            var whereLambda = Expression.Lambda(suchThatBody, whereLambdaParameter);
-            var callWhereOnSource = OperatorBinding.Bind(CqlOperator.Where, ctx.RuntimeContextParameter, source, whereLambda);
-
-            var selectLambdaParameter = Expression.Parameter(sourceElementType, with.alias);
-            var selectBody = selectManyParameter; // P => E
-            var selectLambda = Expression.Lambda(selectBody, selectLambdaParameter);
-            var callSelectOnWhere = OperatorBinding.Bind(CqlOperator.Select, ctx.RuntimeContextParameter, callWhereOnSource, selectLambda);
-
-            var selectManyLambda = Expression.Lambda(callSelectOnWhere, selectManyParameter);
-            return selectManyLambda;
+            var operatorsProperty = typeof(CqlContext).GetProperty(nameof(CqlContext.Operators))!;
+            var operators = Expression.Property(ctx.RuntimeContextParameter, operatorsProperty);
+            var outerElementType = TypeResolver.GetListElementType(source.Type, @throw: true)!;
+            var methodName = relationship is Without
+                ? nameof(ICqlOperators.WithoutRelated)
+                : nameof(ICqlOperators.WithRelated);
+            var method = operatorsProperty.PropertyType
+                .GetMethod(methodName)!
+                .MakeGenericMethod(outerElementType, relatedElementType);
+            return Expression.Call(operators, method, source, relatedLambda, suchThatLambda);
         }
 
         // Yeah, hardwired to FHIR 4.0.1 for now.
@@ -2461,7 +2415,7 @@ namespace Hl7.Cql.Compiler
                 .Select(operand => TranslateExpression(operand, ctx))
                 .Select(op => op.Type)
                 .ToArray();
-            if (op.libraryName?.StartsWith("FHIRHelpers") ?? false)
+            if (op.libraryName?.StartsWith("FHIRHelpers", StringComparison.Ordinal) ?? false)
             {
                 // cql-to-elm does not handle FHIRHelpers conversion function refs appropriately; they are missing resultTypeSpecifiers
                 switch (op.name)

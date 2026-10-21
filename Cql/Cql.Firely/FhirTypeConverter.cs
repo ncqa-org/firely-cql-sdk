@@ -30,6 +30,8 @@ namespace Hl7.Cql.Fhir
         public static readonly TypeConverter Default = Create(ModelInfo.ModelInspector);
 
         private static LRUCache<CqlDateTime>? dateTimes = null;
+        private static readonly LRUCache<CqlDate> dateStrings = new(10000);
+        private static readonly LRUCache<CqlDateTime> dateTimeStrings = new(10000);
 
         /// <summary>
         /// Sets up the cache size for the LRU cache
@@ -282,14 +284,24 @@ namespace Hl7.Cql.Fhir
             // TODO: this is a performance problem
             converter.AddConversion<string, CqlDate?>(str =>
             {
+                if (dateStrings.TryGetValue(str, out var cached))
+                    return cached;
                 if (CqlDate.TryParse(str, out var date))
+                {
+                    dateStrings.Insert(str, date!);
                     return date!;
+                }
                 else return null;
             });
             converter.AddConversion<string, CqlDateTime?>(str =>
             {
+                if (dateTimeStrings.TryGetValue(str, out var cached))
+                    return cached;
                 if (CqlDateTime.TryParse(str, out var dateTime))
+                {
+                    dateTimeStrings.Insert(str, dateTime!);
                     return dateTime;
+                }
                 else return null;
             });
             converter.AddConversion<string, CqlTime?>(str =>
