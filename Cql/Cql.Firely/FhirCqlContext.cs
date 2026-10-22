@@ -6,6 +6,7 @@
  * available at https://raw.githubusercontent.com/FirelyTeam/firely-cql-sdk/main/LICENSE
  */
 
+using System;
 using Hl7.Cql.Operators;
 using Hl7.Cql.Runtime;
 using Hl7.Cql.ValueSets;
@@ -58,6 +59,35 @@ namespace Hl7.Cql.Fhir
             FhirModelBindingOptions? options = null)
         {
             return createContext(source, parameters, valueSets, now, delegates, options);
+        }
+
+        /// <summary>
+        /// Points an existing context at another patient's <paramref name="bundle"/>, keeping everything else: operators,
+        /// comparers, value sets, parameters and message handlers.
+        /// </summary>
+        /// <remarks>
+        /// Setting up a context (operators, comparers, unit conversion) costs far more than indexing a bundle, so a batch run
+        /// can create one context per worker and switch the bundle for each patient instead of creating a context per patient.
+        /// <para>
+        /// A context is not thread-safe: use each one for one patient at a time. Create new library instances for every
+        /// patient, because library instances cache the results of their definitions.
+        /// </para>
+        /// </remarks>
+        /// <param name="context">A context created by <see cref="ForBundle"/> or <see cref="WithDataSource"/>.</param>
+        /// <param name="bundle">The next patient's data.</param>
+        /// <param name="valueSets">The value sets used for retrieves, or <see langword="null"/> to keep the context's value sets.</param>
+        /// <returns><paramref name="context"/>.</returns>
+        /// <exception cref="ArgumentException">The context was not created by <see cref="FhirCqlContext"/>.</exception>
+        public static CqlContext SetBundle(this CqlContext context, Bundle bundle, IValueSetDictionary? valueSets = null)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentNullException.ThrowIfNull(bundle);
+
+            if (context.Operators is not CqlOperators operators)
+                throw new ArgumentException($"The context must be created by {nameof(FhirCqlContext)}.", nameof(context));
+
+            operators.DataSource = new BundleDataSource(bundle, valueSets ?? operators.ValueSets);
+            return context;
         }
     }
 }

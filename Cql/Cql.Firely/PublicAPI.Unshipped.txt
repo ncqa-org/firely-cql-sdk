@@ -22,3 +22,4 @@ static Hl7.Cql.Fhir.ValueSetExtensions.ToValueSetDictionary(this System.Collecti
 static readonly Hl7.Cql.Fhir.FhirModelBindingOptions.Default -> Hl7.Cql.Fhir.FhirModelBindingOptions!
 static readonly Hl7.Cql.Fhir.FhirTypeConverter.Default -> Hl7.Cql.Conversion.TypeConverter!
 static readonly Hl7.Cql.Fhir.FhirTypeResolver.Default -> Hl7.Cql.Fhir.FhirTypeResolver!
+static Hl7.Cql.Fhir.FhirCqlContext.SetBundle(this Hl7.Cql.Runtime.CqlContext! context, Hl7.Fhir.Model.Bundle! bundle, Hl7.Cql.ValueSets.IValueSetDictionary? valueSets = null) -> Hl7.Cql.Runtime.CqlContext!
