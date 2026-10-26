@@ -34,8 +34,14 @@ namespace Hl7.Cql.Packaging.ResourceWriters
                         if (binary.ContentType == "text/plain")
                         {
                             var bytes = binary.Data;
+                            if (bytes == null)
+                            {
+                                Logger.LogWarning($"Binary resource {binary.Id} has no data.");
+                                continue;
+                            }
+
                             DirectoryInfo? sourceDir = null;
-                            if (binary.Id.StartsWith("Tuple_", StringComparison.Ordinal))
+                            if ((binary.Id ?? "").StartsWith("Tuple_", StringComparison.Ordinal))
                             {
                                 sourceDir = new(Path.Combine(OutDirectory.FullName, "Tuples"));
                             }
@@ -56,6 +62,11 @@ namespace Hl7.Cql.Packaging.ResourceWriters
                         if (textPlain != null)
                         {
                             var bytes = textPlain.Data;
+                            if (bytes == null)
+                            {
+                                Logger.LogWarning($"Binary resource {library.Id} has no data.");
+                                continue;
+                            }
                             var sourceFilePath = Path.Combine(OutDirectory.FullName, $"{library.Id}.cs");
                             File.WriteAllBytes(sourceFilePath, bytes);
                         }

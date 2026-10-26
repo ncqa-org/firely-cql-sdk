@@ -57,7 +57,9 @@ namespace Hl7.Cql.Fhir
             PropertyInfo? result = null;
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Code<>) && propertyName == "value")
             {
-                result = ReflectionHelper.FindProperty(type, "Value");
+                // ReflectionHelper is no longer public in Firely SDK 6.x
+                result = type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                    ?? type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
             }
             else
             {
@@ -72,7 +74,7 @@ namespace Hl7.Cql.Fhir
                     {
                         var propMapping = cm.FindMappedElementByName(propertyName);
                         if (propMapping is not null)
-                            result = new FhirModelPropertyInfo(propMapping.NativeProperty, propMapping);
+                            result = new FhirModelPropertyInfo(propMapping.NativeProperty!, propMapping);
                     }
                 }
                 else
@@ -133,7 +135,7 @@ namespace Hl7.Cql.Fhir
                 return cm.IsBackboneType switch
                 {
                     false => fhirPrefix + cm.Name,
-                    true => fhirPrefix + cm.DefinitionPath
+                    true => fhirPrefix + cm.Name // 6.x: backbone mappings are named by their definition path (e.g. Patient.contact)
                 };
             }
 

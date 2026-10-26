@@ -8,6 +8,7 @@
 
 using Hl7.Fhir.Introspection;
 using System.Globalization;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace Hl7.Cql.Fhir
@@ -37,6 +38,36 @@ namespace Hl7.Cql.Fhir
         public override Type? ReflectedType => propertyInfo.ReflectedType;
 
         public PropertyMapping Mapping { get; }
+
+        // PropertyMapping.GetValue/SetValue were removed in Firely SDK 6.x, so we build our own
+        // compiled (fast) accessors lazily from the native property.
+        private Func<object, object?>? getter;
+        private Action<object, object?>? setter;
+
+        private Func<object, object?> Getter => getter ??= BuildGetter();
+
+        private Action<object, object?> Setter => setter ??= BuildSetter();
+
+        private Func<object, object?> BuildGetter()
+        {
+            var declaringType = propertyInfo.DeclaringType!;
+            var instance = Expression.Parameter(typeof(object), "instance");
+            var body = Expression.Convert(
+                Expression.Property(Expression.Convert(instance, declaringType), propertyInfo),
+                typeof(object));
+            return Expression.Lambda<Func<object, object?>>(body, instance).Compile();
+        }
+
+        private Action<object, object?> BuildSetter()
+        {
+            var declaringType = propertyInfo.DeclaringType!;
+            var instance = Expression.Parameter(typeof(object), "instance");
+            var value = Expression.Parameter(typeof(object), "value");
+            var body = Expression.Assign(
+                Expression.Property(Expression.Convert(instance, declaringType), propertyInfo),
+                Expression.Convert(value, propertyInfo.PropertyType));
+            return Expression.Lambda<Action<object, object?>>(body, instance, value).Compile();
+        }
 
         public override MethodInfo[] GetAccessors(bool nonPublic)
         {
@@ -68,20 +99,20 @@ namespace Hl7.Cql.Fhir
             return propertyInfo.GetSetMethod(nonPublic);
         }
 
-        // Override to call the mappings GetValue, which is a fast ILEmitted getter
+        // Override to use a fast compiled getter
         public override object? GetValue(object? obj, BindingFlags invokeAttr, Binder? binder, object?[]? index, CultureInfo? culture) =>
-            obj is not null ? Mapping.GetValue(obj) : null;
+            obj is not null ? Getter(obj) : null;
 
         public override bool IsDefined(Type attributeType, bool inherit)
         {
             return propertyInfo.IsDefined(attributeType, inherit);
         }
 
-        // Override to call the mappings SetValue, which is a fast ILEmitted setter
+        // Override to use a fast compiled setter
         public override void SetValue(object? obj, object? value, BindingFlags invokeAttr, Binder? binder, object?[]? index, CultureInfo? culture)
         {
             if (obj is not null)
-                Mapping.SetValue(obj, value);
+                Setter(obj, value);
         }
     }
 }

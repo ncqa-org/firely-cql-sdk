@@ -86,7 +86,7 @@ namespace Hl7.Cql.Fhir
         {
             if (valueSet != null && valueSet.id != null)
             {
-                return executeFilter<T>(c => ValueSets.IsCodeInValueSet(valueSet.id, c.Code, c.System), codeProperty);
+                return executeFilter<T>(c => ValueSets.IsCodeInValueSet(valueSet.id, c.Code ?? "", c.System ?? ""), codeProperty);
             }
             else
             {

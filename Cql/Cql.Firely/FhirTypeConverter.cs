@@ -57,6 +57,28 @@ namespace Hl7.Cql.Fhir
                 .ConvertCodeTypes(model);
         }
 
+        // Firely 6.x validates FhirDateTime strictly (e.g. a time without a timezone offset is rejected by
+        // TryToSystemDateTime), whereas 5.x was lenient. Fall back to the lenient CQL ISO 8601 parser.
+        private static CqlDateTime? tryParseCqlDateTime(M.FhirDateTime f)
+        {
+            if (f.TryToSystemDateTime(out var dt))
+            {
+                return new CqlDateTime(
+                    dt!.Years!.Value, dt.Months,
+                    dt.Days, dt.Hours, dt.Minutes, dt.Seconds, dt.Millis,
+                    dt.HasOffset ? dt.Offset!.Value.Hours : null, dt.HasOffset ? dt.Offset!.Value.Minutes : null);
+            }
+
+            if (f.Value is not null && Hl7.Cql.Iso8601.DateTimeIso8601.TryParse(f.Value, out var iso) && iso is not null)
+            {
+                return new CqlDateTime(
+                    iso.Year, iso.Month, iso.Day, iso.Hour, iso.Minute, iso.Second, iso.Millisecond,
+                    iso.OffsetHour, iso.OffsetMinute);
+            }
+
+            return null;
+        }
+
         internal static TypeConverter ConvertFhirToCqlPrimitives(this TypeConverter converter)
         {
             HashSet<Type> toTypes = new();
@@ -79,10 +101,10 @@ namespace Hl7.Cql.Fhir
             add((M.Integer c) => new UnsignedInt(c.Value));
             add((M.Integer c) => new PositiveInt(c.Value));
             add((M.Code c) => c.Value);
-            add((M.Date f) => f.TryToDate(out var date) ? new CqlDate(date!.Years!.Value, date.Months, date.Days) : null);
-            add((M.Date f) => f.TryToDate(out var date) ? new CqlDateTime(date!.Years!.Value, date.Months, date.Days, 0, 0, 0, 0, 0, 0) : null);
+            add((M.Date f) => f.TryToSystemDate(out var date) ? new CqlDate(date!.Years!.Value, date.Months, date.Days) : null);
+            add((M.Date f) => f.TryToSystemDate(out var date) ? new CqlDateTime(date!.Years!.Value, date.Months, date.Days, 0, 0, 0, 0, 0, 0) : null);
             add((M.Date f) => f.ToString());
-            add((M.Time f) => f.TryToTime(out var time) ? new CqlTime(time!.Hours!.Value, time.Minutes, time.Seconds, time.Millis, null, null) : null);
+            add((M.Time f) => f.TryToSystemTime(out var time) ? new CqlTime(time!.Hours!.Value, time.Minutes, time.Seconds, time.Millis, null, null) : null);
             add((M.Time f) => f.ToString());
             add((M.FhirDateTime f) =>
             {
@@ -94,13 +116,8 @@ namespace Hl7.Cql.Fhir
                     return datetime;
                 }
 
-                if (f.TryToDateTime(out var dt))
+                if (tryParseCqlDateTime(f) is { } cqlDateTime)
                 {
-                    var cqlDateTime = new CqlDateTime(
-                        dt!.Years!.Value, dt.Months,
-                        dt.Days, dt.Hours, dt.Minutes, dt.Seconds, dt.Millis,
-                        dt.HasOffset ? dt.Offset!.Value.Hours : null, dt.HasOffset ? dt.Offset!.Value.Minutes : null);
-
                     dateTimes?.Insert(f.Value, cqlDateTime);
                     return cqlDateTime;
                 }
@@ -115,13 +132,8 @@ namespace Hl7.Cql.Fhir
                 if (dateTimes?.TryGetValue(f.Value, out var datetime) ?? false)
                     return datetime.DateOnly;
 
-                if (f.TryToDateTime(out var dt))
+                if (tryParseCqlDateTime(f) is { } cqlDateTime)
                 {
-                    var cqlDateTime = new CqlDateTime(
-                        dt!.Years!.Value, dt.Months,
-                        dt.Days, dt.Hours, dt.Minutes, dt.Seconds, dt.Millis,
-                        dt.HasOffset ? dt.Offset!.Value.Hours : null, dt.HasOffset ? dt.Offset!.Value.Minutes : null);
-
                     dateTimes?.Insert(f.Value, cqlDateTime);
                     return cqlDateTime.DateOnly;
                 }
@@ -312,7 +324,7 @@ namespace Hl7.Cql.Fhir
             });
             converter.AddConversion<DateTimeOffset, CqlDateTime>(dto => new CqlDateTime(dto, Iso8601.DateTimePrecision.Millisecond));
             converter.AddConversion<string, FhirUri>(str => new FhirUri(str));
-            converter.AddConversion<FhirUri, string>(uri => uri.Value);
+            converter.AddConversion<FhirUri, string>(uri => uri.Value ?? "");
             //converter.AddConversion<M.Quantity.QuantityComparator, string>(qc => qc switch
             //{
             //    M.Quantity.QuantityComparator.Ad => "=",
@@ -346,19 +358,20 @@ namespace Hl7.Cql.Fhir
             {
                 var codeType = typeof(Code<>).MakeGenericType(enumType);
                 var nullableEnumType = typeof(Nullable<>).MakeGenericType(enumType);
+                // ISystemAndCode was removed in Firely SDK 6.x; Code<T> exposes Literal and System directly.
+                var literalProperty = codeType.GetProperty("Literal")!;
+                var systemProperty = codeType.GetProperty("System")!;
                 converter.AddConversion(codeType, typeof(CqlCode), (code) =>
                 {
-                    var systemAndCode = (ISystemAndCode)code;
-                    return new CqlCode(systemAndCode.Code, systemAndCode.System, null, null);
+                    var literal = (string?)literalProperty.GetValue(code);
+                    var system = (string?)systemProperty.GetValue(code);
+                    return new CqlCode(literal!, system!, null, null);
                 });
                 converter.AddConversion(codeType, nullableEnumType, (code) => 
                     code.GetType().GetProperty("ObjectValue")!.GetValue(code)!);
 
                 converter.AddConversion(codeType, typeof(string), (code) =>
-                {
-                    var systemAndCode = (ISystemAndCode)code;
-                    return systemAndCode.Code;
-                });
+                    (string?)literalProperty.GetValue(code)!);
 
                 converter.AddConversion(nullableEnumType, typeof(string), (@enum) =>
                     Enum.GetName(nullableEnumType, @enum) ?? throw new InvalidOperationException($"Did not find enum member {@enum} on type {nullableEnumType}."));

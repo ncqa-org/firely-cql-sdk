@@ -31,11 +31,11 @@ namespace Hl7.Cql.Packaging
                  Func<string, Library> getLibrary,
                  string libraryProperty = "")
             {
-                if (!graph.Nodes.TryGetValue(library.Id, out var thisNode))
+                if (!graph.Nodes.TryGetValue(library.Id!, out var thisNode))
                 {
                     thisNode = new DirectedGraphNode
                     {
-                        NodeId = library.Id,
+                        NodeId = library.Id!,
                         Properties = new Dictionary<string, object>
                         {
                             { libraryProperty, library }
@@ -61,7 +61,7 @@ namespace Hl7.Cql.Packaging
                 {
                     foreach (var relatedArtifiact in dependencies)
                     {
-                        var relatedArtifact = getLibrary(relatedArtifiact.Resource)
+                        var relatedArtifact = getLibrary(relatedArtifiact!.Resource!)
                             ?? throw new InvalidOperationException($"Could not find related library {relatedArtifiact.ElementId}");
                         Visit(graph, thisNode, relatedArtifact, getLibrary, libraryProperty);
                     }
@@ -108,7 +108,7 @@ namespace Hl7.Cql.Packaging
                 var dll = library.Content.SingleOrDefault(att => att.ContentType == "application/octet-stream");
                 if (dll != null)
                 {
-                    using var ms = new MemoryStream(dll.Data);
+                    using var ms = new MemoryStream(dll.Data!);
                     var assembly = asmContext.LoadFromStream(ms);
                 }
 
@@ -123,7 +123,7 @@ namespace Hl7.Cql.Packaging
             {
                 if (binary.ContentType == "application/octet-stream")
                 {
-                    using var ms = new MemoryStream(binary.Data);
+                    using var ms = new MemoryStream(binary.Data!);
                     var assembly = asmContext.LoadFromStream(ms);
                 }
             }
