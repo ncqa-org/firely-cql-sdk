@@ -296,7 +296,7 @@ namespace Hl7.Cql.Packaging
                                 throw new InvalidOperationException("Library NameAndVersion should not be null.");
                             if (!libraries.TryGetValue(library.NameAndVersion, out var libForMeasure) || libForMeasure is null)
                                 throw new InvalidOperationException($"We didn't create a measure for library {libForMeasure}");
-                            measure.Library = new List<string> { libForMeasure!.Url };
+                            measure.Library = new List<string> { libForMeasure!.Url! };
                             resources.Add(measure);
                         }
                     }

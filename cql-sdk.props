@@ -27,7 +27,7 @@
 	<!-- Source Link is built into the .NET 8+ SDK; the Microsoft.SourceLink.GitHub package is no longer needed. -->
 
 	<PropertyGroup>
-		<FirelySdkVersion>5.8.2</FirelySdkVersion>
+		<FirelySdkVersion>6.8.0</FirelySdkVersion>
 	</PropertyGroup>
 
 	<!-- Compiler settings -->

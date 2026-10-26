@@ -28,7 +28,7 @@ namespace Hl7.Cql.Fhir
             bool activeOnly = true,
             Func<ValueSet, bool>? onInvalidValueSet = null)
         {
-            ValueSets = valuesets.ToDictionary(vs => vs.Url);
+            ValueSets = valuesets.ToDictionary(vs => vs.Url ?? "");
             ActiveOnly = activeOnly;
             OnInvalidValueSet = onInvalidValueSet;
         }
@@ -73,9 +73,9 @@ namespace Hl7.Cql.Fhir
                     if (!string.IsNullOrWhiteSpace(code)
                         && !string.IsNullOrWhiteSpace(system))
                     {
-                        if (!dictionary.IsCodeInValueSet(vs.Url, code, system))
+                        if (!dictionary.IsCodeInValueSet(vs.Url!, code, system))
                         {
-                            dictionary.Add(vs.Url, new CqlCode(code, system, component.Version, component.Display));
+                            dictionary.Add(vs.Url!, new CqlCode(code, system, component.Version, component.Display));
                         }
                     }
 
@@ -98,8 +98,8 @@ namespace Hl7.Cql.Fhir
                             if (!string.IsNullOrWhiteSpace(code)
                                 && !string.IsNullOrWhiteSpace(system))
                             {
-                                if (!dictionary.IsCodeInValueSet(vs.Url, code, system))
-                                    dictionary.Add(vs.Url, new CqlCode(code, system, component.Version, conceptComponent.Display));
+                                if (!dictionary.IsCodeInValueSet(vs.Url!, code, system))
+                                    dictionary.Add(vs.Url!, new CqlCode(code, system, component.Version, conceptComponent.Display));
                             }
                         }
                     }
@@ -114,15 +114,15 @@ namespace Hl7.Cql.Fhir
                                 var cycle = string.Join(" => ", soFar);
                                 throw new InvalidOperationException($"Value set {vs.Id} has a cyclical reference in its composition: {cycle}");
                             }
-                            if (!dictionary.TryGetCodesInValueSet(includedValueSetUri, out var cvsCodes))
+                            if (!dictionary.TryGetCodesInValueSet(includedValueSetUri ?? "", out var cvsCodes))
                             {
-                                if (ValueSets.TryGetValue(includedValueSetUri, out var includedVs))
+                                if (ValueSets.TryGetValue(includedValueSetUri ?? "", out var includedVs))
                                 {
                                     var deeper = new string[soFar.Length + 1];
                                     Array.Copy(soFar, deeper, soFar.Length);
-                                    deeper[deeper.Length - 1] = includedValueSetUri;
+                                    deeper[deeper.Length - 1] = includedValueSetUri ?? "";
                                     Load(dictionary, includedVs, deeper);
-                                    if (!dictionary.TryGetCodesInValueSet(includedValueSetUri, out cvsCodes))
+                                    if (!dictionary.TryGetCodesInValueSet(includedValueSetUri ?? "", out cvsCodes))
                                         throw new InvalidOperationException($"Couldn't load {includedValueSetUri}");
                                 }
                                 else throw new InvalidOperationException($"Intensional value set {vs.Id} includes value set {includedValueSetUri}, which was not provided to this loader.");
@@ -131,9 +131,9 @@ namespace Hl7.Cql.Fhir
                             {
                                 if (!string.IsNullOrWhiteSpace(code.code) && !string.IsNullOrWhiteSpace(code.system))
                                 {
-                                    if (!dictionary.IsCodeInValueSet(vs.Url, code.code!, code.system))
+                                    if (!dictionary.IsCodeInValueSet(vs.Url!, code.code!, code.system))
                                     {
-                                        dictionary.Add(vs.Url, new CqlCode(code.code, code.system, code.version, code.display));
+                                        dictionary.Add(vs.Url!, new CqlCode(code.code, code.system, code.version, code.display));
                                     }
                                 }
                             }
