@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 Hl7.Cql.Runtime.BaseTypeResolver
 Hl7.Cql.Runtime.BaseTypeResolver.BaseTypeResolver() -> void
 Hl7.Cql.Runtime.ContextEventArgs
@@ -36,3 +36,14 @@ override Hl7.Cql.Runtime.BaseTypeResolver.ImplementsGenericInterface(System.Type
 override Hl7.Cql.Runtime.BaseTypeResolver.ResolveType(string! typeSpecifier) -> System.Type?
 readonly Hl7.Cql.Runtime.BaseTypeResolver.Types -> System.Collections.Generic.Dictionary<string!, System.Type!>!
 virtual Hl7.Cql.Runtime.BaseTypeResolver.GetPropertyCore(System.Type! type, string! propertyName) -> System.Reflection.PropertyInfo?
+Hl7.Cql.Runtime.ICqlLibraryInstance
+Hl7.Cql.Runtime.ICqlLibraryInstance.ResetPatientValues() -> void
+Hl7.Cql.Runtime.ICqlLibraryInstance.ResetSharedValues() -> void
+Hl7.Cql.Runtime.ICqlLibraryInstance.Scope.get -> Hl7.Cql.Runtime.CqlLibraryScope!
+Hl7.Cql.Runtime.CqlLibraryScope
+Hl7.Cql.Runtime.CqlLibraryScope.CqlLibraryScope() -> void
+Hl7.Cql.Runtime.CqlLibraryScope.GetOrAdd(System.Type! type, System.Func<Hl7.Cql.Runtime.CqlLibraryScope!, Hl7.Cql.Runtime.ICqlLibraryInstance!>! factory) -> Hl7.Cql.Runtime.ICqlLibraryInstance!
+Hl7.Cql.Runtime.CqlLibraryScope.GetOrAdd<T>(System.Func<Hl7.Cql.Runtime.CqlLibraryScope!, T!>! factory) -> T!
+Hl7.Cql.Runtime.CqlLibraryScope.Register(Hl7.Cql.Runtime.ICqlLibraryInstance! instance) -> void
+Hl7.Cql.Runtime.CqlLibraryScope.Reset() -> void
+Hl7.Cql.Runtime.CqlLibraryScope.ResetAll() -> void

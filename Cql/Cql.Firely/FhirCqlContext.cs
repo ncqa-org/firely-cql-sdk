@@ -69,8 +69,9 @@ namespace Hl7.Cql.Fhir
         /// Setting up a context (operators, comparers, unit conversion) costs far more than indexing a bundle, so a batch run
         /// can create one context per worker and switch the bundle for each patient instead of creating a context per patient.
         /// <para>
-        /// A context is not thread-safe: use each one for one patient at a time. Create new library instances for every
-        /// patient, because library instances cache the results of their definitions.
+        /// A context is not thread-safe: use each one for one patient at a time. Library instances cache the results of their
+        /// definitions, so call <see cref="CqlLibraryScope.Reset"/> on their scope between patients, or let a
+        /// <see cref="MeasureSession"/> do it.
         /// </para>
         /// </remarks>
         /// <param name="context">A context created by <see cref="ForBundle"/> or <see cref="WithDataSource"/>.</param>

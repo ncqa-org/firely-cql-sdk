@@ -96,6 +96,13 @@ namespace Hl7.Cql.CodeGeneration.NET
 
         internal IList<string> ContextLibraries { get; set; } = new List<string>();
 
+        private PatientIndependenceAnalyzer? patientIndependence;
+
+        private const string ScopeField = "cqlLibraryScope__";
+
+        private bool isPatientIndependent(string libraryName, string cqlName, LambdaExpression overload) =>
+            patientIndependence?.IsPatientIndependentDefinition(libraryName, cqlName, overload) ?? false;
+
         /// <summary>
         /// Writes C# source code from inputs.
         /// </summary>
@@ -114,6 +121,7 @@ namespace Hl7.Cql.CodeGeneration.NET
             Predicate<string>? writeFile = null)
         {
             var libraryNameToClassName = VariableNameGenerator.NormalizeIdentifier;
+            patientIndependence = new PatientIndependenceAnalyzer(definitions);
             bool defaultWriteFile(string nodeId) => true;
             writeFile ??= defaultWriteFile;
 
@@ -270,9 +278,13 @@ namespace Hl7.Cql.CodeGeneration.NET
             writer.WriteLine(indentLevel, $"[CqlLibrary(\"{libraryAttribute}\", \"{versionAttribute}\")]");
             var className = VariableNameGenerator.NormalizeIdentifier(libraryName);
             if (PartialClass)
-                writer.WriteLine(indentLevel, $"public partial class {className}");
+                writer.WriteLine(indentLevel, hasContext
+                    ? $"public partial class {className} : ICqlLibraryInstance"
+                    : $"public partial class {className}");
             //else if (hasContext)
             //    writer.WriteLine(indentLevel, $"public class {className} : ICqlMeasure");
+            else if (hasContext)
+                writer.WriteLine(indentLevel, $"public class {className} : ICqlLibraryInstance");
             else
                 writer.WriteLine(indentLevel, $"public class {className}");
 
@@ -306,29 +318,44 @@ namespace Hl7.Cql.CodeGeneration.NET
 
                     writeCachedValues(definitions, libraryName, writer, indentLevel);
 
-                    // Write constructor
-                    if (!string.IsNullOrEmpty(cacheLibraryName))
-                        writer.WriteLine(indentLevel, $"public {className}(CqlContext context, {cacheLibraryName} cache)");
-                    else
-                        writer.WriteLine(indentLevel, $"public {className}(CqlContext context)");
+                    writer.WriteLine(indentLevel, $"private readonly CqlLibraryScope {ScopeField};");
+                    writer.WriteLine();
+
+                    // Constructors without a scope create their own; libraries are shared through the scope.
+                    var hasCache = !string.IsNullOrEmpty(cacheLibraryName);
+                    var cacheParameter = hasCache ? $", {cacheLibraryName} cache" : "";
+                    var cacheArgument = hasCache ? ", cache" : "";
+                    writer.WriteLine(indentLevel, $"public {className}(CqlContext context{cacheParameter}) : this(context{cacheArgument}, new CqlLibraryScope())");
+                    writer.WriteLine(indentLevel, "{");
+                    writer.WriteLine(indentLevel, "}");
+                    writer.WriteLine();
+
+                    writer.WriteLine(indentLevel, $"public {className}(CqlContext context{cacheParameter}, CqlLibraryScope scope)");
                     writer.WriteLine(indentLevel, "{");
                     {
                         indentLevel += 1;
 
                         writer.WriteLine(indentLevel, "this.context = context ?? throw new ArgumentNullException(\"context\");");
+                        writer.WriteLine(indentLevel, $"this.{ScopeField} = scope ?? throw new ArgumentNullException(\"scope\");");
                         writer.WriteLine();
 
-                        if (!string.IsNullOrEmpty(cacheLibraryName))
+                        if (hasCache)
                         {
                             writer.WriteLine(indentLevel, "this.cache = cache ?? throw new ArgumentNullException(\"cache\");");
                             writer.WriteLine();
                         }
+
+                        writer.WriteLine(indentLevel, "scope.Register(this);");
+                        writer.WriteLine();
 
                         writeDependencies(dependencyGraph, libraryNameToClassName, libraryName, writer, indentLevel);
                         indentLevel -= 1;
                     }
 
                     writer.WriteLine(indentLevel, "}");
+                    writer.WriteLine();
+
+                    writeResetMethods(definitions, libraryName, writer, indentLevel);
                 }
 
                 WriteLibraryMembers(writer, dependencyGraph, libraryName, libraryNameToClassName!, indentLevel);
@@ -502,7 +529,7 @@ namespace Hl7.Cql.CodeGeneration.NET
                 {
                     var typeName = libraryNameToClassName!(dependentLibrary);
                     var memberName = typeName;
-                    writer.WriteLine(indentLevel, $"{memberName} = new {typeName}(context);");
+                    writer.WriteLine(indentLevel, $"{memberName} = scope.GetOrAdd(s => new {typeName}(context, s));");
                 }
             }
         }
@@ -532,6 +559,44 @@ namespace Hl7.Cql.CodeGeneration.NET
             }
             writer.WriteLine();
             writer.WriteLine(indentLevel, "#endregion");
+        }
+
+        private void writeResetMethods(DefinitionDictionary<LambdaExpression> definitions, string libraryName, TextWriter writer, int indentLevel)
+        {
+            // Definitions that never touch patient data keep their cached values from one patient to the next;
+            // they are only discarded by ResetSharedValues (when parameters or the evaluation time change).
+            var patientValues = new List<string>();
+            var sharedValues = new List<string>();
+            foreach (var kvp in definitions.DefinitionsForLibrary(libraryName))
+            {
+                foreach (var overload in kvp.Value)
+                {
+                    if (!isDefinition(overload.T))
+                        continue;
+                    var cachedValueName = DefinitionCacheKeyForMethod(VariableNameGenerator.NormalizeIdentifier(kvp.Key)!);
+                    var target = isPatientIndependent(libraryName, kvp.Key, overload.T) ? sharedValues : patientValues;
+                    target.Add(cachedValueName);
+                }
+            }
+
+            writer.WriteLine(indentLevel, $"CqlLibraryScope ICqlLibraryInstance.Scope => {ScopeField};");
+            writer.WriteLine();
+            writeResetMethod(writer, indentLevel, "ResetPatientValues", patientValues);
+            writer.WriteLine();
+            writeResetMethod(writer, indentLevel, "ResetSharedValues", sharedValues);
+            writer.WriteLine();
+        }
+
+        private static void writeResetMethod(TextWriter writer, int indentLevel, string methodName, IEnumerable<string> cachedValueNames)
+        {
+            writer.WriteLine(indentLevel, $"void ICqlLibraryInstance.{methodName}()");
+            writer.WriteLine(indentLevel, "{");
+            foreach (var name in cachedValueNames)
+            {
+                writer.WriteLine(indentLevel + 1, $"{name} = default;");
+                writer.WriteLine(indentLevel + 1, $"{name}_evaluated = false;");
+            }
+            writer.WriteLine(indentLevel, "}");
         }
 
         private void writeTupleTypes(IEnumerable<Type> tupleTypes, Func<string, Stream> libraryNameToStream, bool closeStream)

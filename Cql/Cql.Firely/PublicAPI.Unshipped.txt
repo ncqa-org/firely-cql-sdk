@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 Hl7.Cql.Fhir.FhirCqlContext
 Hl7.Cql.Fhir.FhirModelBindingOptions
 Hl7.Cql.Fhir.FhirModelBindingOptions.CodeInOperatorSemantics
@@ -23,3 +23,16 @@ static readonly Hl7.Cql.Fhir.FhirModelBindingOptions.Default -> Hl7.Cql.Fhir.Fhi
 static readonly Hl7.Cql.Fhir.FhirTypeConverter.Default -> Hl7.Cql.Conversion.TypeConverter!
 static readonly Hl7.Cql.Fhir.FhirTypeResolver.Default -> Hl7.Cql.Fhir.FhirTypeResolver!
 static Hl7.Cql.Fhir.FhirCqlContext.SetBundle(this Hl7.Cql.Runtime.CqlContext! context, Hl7.Fhir.Model.Bundle! bundle, Hl7.Cql.ValueSets.IValueSetDictionary? valueSets = null) -> Hl7.Cql.Runtime.CqlContext!
+Hl7.Cql.Fhir.MeasureSession
+Hl7.Cql.Fhir.MeasureSession.Context.get -> Hl7.Cql.Runtime.CqlContext!
+Hl7.Cql.Fhir.MeasureSession.Evaluate<TResult>(Hl7.Fhir.Model.Bundle! bundle, System.Func<Hl7.Cql.Fhir.MeasureSession!, TResult>! evaluate, Hl7.Cql.ValueSets.IValueSetDictionary? valueSets = null) -> TResult
+Hl7.Cql.Fhir.MeasureSession.Get(System.Type! type) -> Hl7.Cql.Runtime.ICqlLibraryInstance!
+Hl7.Cql.Fhir.MeasureSession.Get<T>() -> T!
+Hl7.Cql.Fhir.MeasureSession.MeasureSession(Hl7.Cql.Runtime.CqlContext! context) -> void
+Hl7.Cql.Fhir.MeasureSession.Scope.get -> Hl7.Cql.Runtime.CqlLibraryScope!
+Hl7.Cql.Fhir.MeasureSession.SetParameters(System.Collections.Generic.IDictionary<string!, object!>! parameters) -> void
+Hl7.Cql.Fhir.MeasureSessionPool
+Hl7.Cql.Fhir.MeasureSessionPool.Evaluate<TResult>(Hl7.Fhir.Model.Bundle! bundle, System.Func<Hl7.Cql.Fhir.MeasureSession!, TResult>! evaluate, Hl7.Cql.ValueSets.IValueSetDictionary? valueSets = null) -> TResult
+Hl7.Cql.Fhir.MeasureSessionPool.MeasureSessionPool(System.Func<Hl7.Cql.Fhir.MeasureSession!>! factory) -> void
+Hl7.Cql.Fhir.MeasureSessionPool.Rent() -> Hl7.Cql.Fhir.MeasureSession!
+Hl7.Cql.Fhir.MeasureSessionPool.Return(Hl7.Cql.Fhir.MeasureSession! session) -> void
