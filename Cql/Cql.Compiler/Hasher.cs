@@ -16,11 +16,13 @@ namespace Hl7.Cql.Compiler
     internal class Hasher
     {
 
-        private MD5 MD5 { get; } = MD5.Create();
         public virtual string Hash(string input)
         {
             var bytes = Encoding.UTF8.GetBytes(input);
-            var hashBytes = MD5.ComputeHash(bytes);
+            // SHA-256 is FIPS-compliant (MD5 is not); truncated to 16 bytes to keep identifiers short.
+            using var sha = SHA256.Create();
+            var hashBytes = sha.ComputeHash(bytes);
+            Array.Resize(ref hashBytes, 16);
             var alpha = ToAlphaString(hashBytes);
             return alpha;
         }
