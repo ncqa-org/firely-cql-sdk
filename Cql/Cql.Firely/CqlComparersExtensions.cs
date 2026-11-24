@@ -57,6 +57,24 @@ namespace Hl7.Cql.Fhir
         }
 
         /// <summary>
+        /// Adds comparers for all types derived from <see cref="BackboneElement"/> (e.g. <c>ExplanationOfBenefit.ItemComponent</c>)
+        /// which compare them by value, so they can be members of tuples that are compared, e.g. by <c>distinct</c>.
+        /// </summary>
+        /// <param name="comparers"></param>
+        /// <returns></returns>
+        public static CqlComparers CompareBackboneElements(this CqlComparers comparers)
+        {
+            var backboneElementComparer = new BackboneElementCqlComparer();
+            var derivedFromBackboneElement = typeof(Patient).Assembly.GetTypes()
+                .Where(t => typeof(BackboneElement).IsAssignableFrom(t) && !t.IsAbstract);
+            foreach (var type in derivedFromBackboneElement)
+            {
+                comparers.Register(type, backboneElementComparer);
+            }
+            return comparers;
+        }
+
+        /// <summary>
         /// Adds comparers for all types derived from <see cref="Resource"/> which compare them by their <see cref="Resource.Id"/> property only.
         /// </summary>
         /// <remarks>

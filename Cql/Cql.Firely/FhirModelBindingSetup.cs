@@ -53,7 +53,8 @@ namespace Hl7.Cql.Fhir
             
             Comparers
                 .AddIntervalComparisons(Operators)
-                .AddFhirComparers();
+                .AddFhirComparers()
+                .CompareBackboneElements();
 
             if (_options?.ResourceIdComparer != null)
                 Comparers.CompareResourcesById(_options.ResourceIdComparer);
